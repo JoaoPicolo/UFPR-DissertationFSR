@@ -10,15 +10,15 @@ class ChannelAttentionLayer(Layer):
         self.channel = channel
         self.reduction = reduction
 
-    # TODO: Verifiy if input_size should be passed as arg. Also verify the corresponding padding value
+    # TODO: Verify the valid of the padding value
     def build(self, input_shape):
         self.avg_pool = GlobalAveragePooling2D(keepdims=True)
         self.conv_du = Sequential(layers=[
             Conv2D(filters=self.channel//self.reduction,
-                   kernel_size=1, padding="valid", use_bias=True),
+                   kernel_size=1, padding="same", use_bias=True),
             ReLU(),
             Conv2D(filters=self.channel, kernel_size=1,
-                   padding="valid", use_bias=True),
+                   padding="same", use_bias=True),
             Activation("sigmoid")
         ])
         super(ChannelAttentionLayer, self).build(input_shape)
@@ -49,13 +49,16 @@ class ResidualChannelAttentionBlock(Layer):
         modules_body = []
         for i in range(2):
             modules_body.append(
-                Conv2D(filters=self.n_feat, kernel_size=self.kernel_size, padding="valid", use_bias=True))
+                Conv2D(filters=self.n_feat, kernel_size=self.kernel_size, padding="same", use_bias=True))
             if self.bn:
                 modules_body.append(BatchNormalization())
             if i == 0:
                 modules_body.append(ReLU())
         modules_body.append(ChannelAttentionLayer(
             output_dim=self.output_dim, channel=self.n_feat, reduction=self.reduction))
+        # TODO: Verify this one, it isn't in the original implementation
+        modules_body.append(
+            Conv2D(filters=3, kernel_size=self.kernel_size, padding="same", use_bias=True))
         self.body = Sequential(layers=modules_body)
         super(ResidualChannelAttentionBlock, self).build(input_shape)
 
@@ -111,7 +114,7 @@ class UpsamplingBlock(Layer):
 
 def main():
     g = Sequential()
-    g.add(UpsamplingBlock(32, input_shape=(64, 64, 3)))
+    g.add(UpsamplingBlock(32, input_shape=(128, 128, 3)))
 
 
 if __name__ == "__main__":
