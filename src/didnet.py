@@ -47,10 +47,10 @@ def body_module(inputs, filters, kernel_size=3, reduction=16):
 
 
 def upsampling_module(inputs, filters, kernel_size=3):
-    # Pixel-shuffle
-    x = pixel_shuffle(inputs, filters, kernel_size)
     # Conv 3x3
-    x = Conv2D(filters, kernel_size, padding="same")(x)
+    x = Conv2D(filters, kernel_size, padding="same")(inputs)
+    # Pixel-shuffle
+    x = pixel_shuffle(x, filters, kernel_size)
 
     return x
 
@@ -61,6 +61,9 @@ def upsampling_block(inputs):
     x = upsampling_module(x, filters)
     # TODO: Revisit filters
     x = Conv2D(3, 1, padding="same")(x)
+
+    # TODO: In the graph of the original papers there is an additional convolution
+    # that is not described in the network structured. Should be added?
 
     return x
 
