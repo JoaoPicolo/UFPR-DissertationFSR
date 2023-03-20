@@ -1,7 +1,8 @@
 import tensorflow as tf
 from keras import Input, Model
-from keras.layers import GlobalAveragePooling2D, Conv2D, ReLU, Activation, Multiply, Add, Lambda, BatchNormalization
+from keras.layers import GlobalAveragePooling2D, Conv2D, ReLU, Activation, Multiply, Add, LeakyReLU, BatchNormalization
 
+# TODO: Verify activation function of each layers
 
 # CAL and RCAB are defined in: https://paperswithcode.com/paper/image-super-resolution-using-very-deep
 def channel_attention_layer(inputs, filters, reduction):
@@ -22,6 +23,7 @@ def residual_channel_attention_block(inputs, filters, kernel_size, reduction, bn
         if i == 0:
             x = ReLU()(x)
     x = channel_attention_layer(x, filters, reduction)
+    # TODO: Make sure this is right
     # This is commented in the original implementation, but since the number of
     # filters is 64 it is necessary to rescale the dimensions for the computations forward
     x = Conv2D(3, kernel_size, padding="same", use_bias=True)(x)
@@ -57,7 +59,8 @@ def upsampling_block(inputs):
     filters = 64
     x = body_module(inputs, filters)
     x = upsampling_module(x, filters)
-    x = Conv2D(3, 1)(x)
+    # TODO: Revisit filters
+    x = Conv2D(3, 1, padding="same")(x)
 
     return x
 
@@ -67,12 +70,32 @@ def get_model_G():
     outputs = upsampling_block(inputs)
     outputs = upsampling_block(outputs)
     model = Model(inputs, outputs)
+
+    return model
+
+
+def downsampling_block(inputs):
+    filters = 64
+    x = Conv2D(filters, 3, padding="same")(inputs)
+    x = LeakyReLU()(x)
+    # TODO: Revisit filters
+    x = Conv2D(3, 3, strides=(2, 2), padding="same")(x)
+
+    return x
+
+
+def get_model_F():
+    inputs = Input(shape=(128, 128, 3))
+    outputs = downsampling_block(inputs)
+    outputs = downsampling_block(outputs)
+    model = Model(inputs, outputs)
+
     return model
 
 
 def main():
     g = get_model_G()
-    print(g.summary())
+    f = get_model_F()
 
 
 if __name__ == "__main__":
