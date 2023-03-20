@@ -1,5 +1,6 @@
-from keras.layers import GlobalAveragePooling2D, Conv2D, ReLU, Activation, Multiply, Add, BatchNormalization
+import tensorflow as tf
 from keras import Input, Model
+from keras.layers import GlobalAveragePooling2D, Conv2D, ReLU, Activation, Multiply, Add, Lambda, BatchNormalization
 
 # CAL and RCAB are defined in: https://github.com/yulunzhang/RCAN
 def channel_attention_layer(inputs, channel, reduction):
@@ -32,16 +33,17 @@ def body_module(inputs):
     
     return x
 
+# Pixel shuffle is defined in: https://github.com/krasserm/super-resolution
+def pixel_shuffle(scale):
+    return lambda x: tf.nn.depth_to_space(x, scale)
 
 def upsampling_module(inputs):
     x = inputs
     # Pixel-shuffle
-    x = Conv2D(filters=64, kernel_size=5, activation='relu', padding="same", kernel_initializer="Orthogonal")(x)
-    x = Conv2D(filters=64, kernel_size=3, activation='relu', padding="same", kernel_initializer="Orthogonal")(x)
-    x = Conv2D(filters=32, kernel_size=3, activation='relu', padding="same", kernel_initializer="Orthogonal")(x)
-    x = Conv2D(filters=9,  kernel_size=3, activation='relu', padding="same", kernel_initializer="Orthogonal")(x)
+    x = Conv2D(256, 3, padding='same')(x)
+    x = Lambda(pixel_shuffle(scale=2))(x)
     # Conv 3x3
-    x = Conv2D(filters=3, kernel_size=3, activation='relu')(x)
+    x = Conv2D(filters=64, kernel_size=3, activation='relu', padding="same")(x)
 
     return x
 
@@ -54,15 +56,15 @@ def upsampling_block(inputs):
 
     return x
 
-def getGModel():
-    inputs = Input(shape=(128,128,3))
+def get_model_G():
+    inputs = Input(shape=(32,32,3))
     outputs = upsampling_block(inputs)
-    # outputs = UpsamplingBlock()(outputs)
+    outputs = upsampling_block(outputs)
     model = Model(inputs, outputs)
     return model
 
 def main():
-    g = getGModel()
+    g = get_model_G()
     print(g.summary())
 
 
