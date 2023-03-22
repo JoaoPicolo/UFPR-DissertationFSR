@@ -6,33 +6,34 @@ from keras.callbacks import Callback, ModelCheckpoint
 from keras.preprocessing import image
 import matplotlib.pyplot as plt
 
+from utils import load_datasets
 from generators import get_model_G, get_model_F
 
 # Reference: https://keras.io/examples/generative/cyclegan/#build-the-cyclegan-model
-class GANMonitor(Callback):
-    def __init__(self, num_img=4):
-        self.num_img = num_img
+# class GANMonitor(Callback):
+#     def __init__(self, num_img=4):
+#         self.num_img = num_img
 
-    def on_epoch_end(self, epoch, logs=None):
-        _, ax = plt.subplots(4, 2, figsize=(12, 12))
-        for i, img in enumerate(test_horses.take(self.num_img)):
-            prediction = self.model.gen_G(img)[0].numpy()
-            prediction = (prediction * 127.5 + 127.5).astype(np.uint8)
-            img = (img[0] * 127.5 + 127.5).numpy().astype(np.uint8)
+#     def on_epoch_end(self, epoch, logs=None):
+#         _, ax = plt.subplots(4, 2, figsize=(12, 12))
+#         for i, img in enumerate(test_horses.take(self.num_img)):
+#             prediction = self.model.gen_G(img)[0].numpy()
+#             prediction = (prediction * 127.5 + 127.5).astype(np.uint8)
+#             img = (img[0] * 127.5 + 127.5).numpy().astype(np.uint8)
 
-            ax[i, 0].imshow(img)
-            ax[i, 1].imshow(prediction)
-            ax[i, 0].set_title("Input image")
-            ax[i, 1].set_title("Translated image")
-            ax[i, 0].axis("off")
-            ax[i, 1].axis("off")
+#             ax[i, 0].imshow(img)
+#             ax[i, 1].imshow(prediction)
+#             ax[i, 0].set_title("Input image")
+#             ax[i, 1].set_title("Translated image")
+#             ax[i, 0].axis("off")
+#             ax[i, 1].axis("off")
 
-            prediction = image.array_to_img(prediction)
-            prediction.save(
-                "generated_img_{i}_{epoch}.png".format(i=i, epoch=epoch + 1)
-            )
-        plt.show()
-        plt.close()
+#             prediction = image.array_to_img(prediction)
+#             prediction.save(
+#                 "generated_img_{i}_{epoch}.png".format(i=i, epoch=epoch + 1)
+#             )
+#         plt.show()
+#         plt.close()
 
 # TODO: Remove lambda cycle and identity?
 class DIDnet(Model):
@@ -118,24 +119,28 @@ class DIDnet(Model):
 
 
 def main():
-    g = get_model_G(input_shape=(65, 90, 3))
-    f = get_model_F(input_shape=(260, 360, 3))
+    # g = get_model_G(input_shape=(65, 90, 3))
+    # f = get_model_F(input_shape=(260, 360, 3))
 
-    # Create cycle gan model
-    didnet = DIDnet(g, f)
+    # # Create cycle gan model
+    # didnet = DIDnet(g, f)
 
-    # Compile the model
-    didnet.compile(
-        gen_G_optimizer=Adam(learning_rate=2e-4, beta_1=0.5),
-        gen_F_optimizer=Adam(learning_rate=2e-4, beta_1=0.5),
-    )
+    # # Compile the model
+    # didnet.compile(
+    #     gen_G_optimizer=Adam(learning_rate=2e-4, beta_1=0.5),
+    #     gen_F_optimizer=Adam(learning_rate=2e-4, beta_1=0.5),
+    # )
+
+    lr, sr = load_datasets(lr_path="../../datasets/FEI-downgraded/", lr_shape=(60, 90),
+                           sr_path="../../datasets/FEI/", sr_shape=(260, 360), test_size=0.2)
+    print(type(lr))
 
     # Callbacks
-    plotter = GANMonitor()
-    checkpoint_filepath = ".didnet_checkpoints.{epoch:03d}"
-    model_checkpoint_callback = ModelCheckpoint(
-        filepath=checkpoint_filepath
-    )
+    # plotter = GANMonitor()
+    # checkpoint_filepath = ".didnet_checkpoints.{epoch:03d}"
+    # model_checkpoint_callback = ModelCheckpoint(
+    #     filepath=checkpoint_filepath
+    # )
 
     # didnet.fit(
     #     tf.data.Dataset.zip((train_horses, train_zebras)),
