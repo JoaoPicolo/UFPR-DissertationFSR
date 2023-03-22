@@ -1,13 +1,16 @@
-import os
-from PIL import Image
+import tensorflow as tf
 from keras.utils import image_dataset_from_directory
 
-def bicubic_downsample(in_path, out_path, out_shape):
-    for img in os.listdir(in_path):
-        print(f"Resizing {img}")
-        original = Image.open(in_path + img)
-        bicubic = original.resize(out_shape, Image.BICUBIC)
-        bicubic.save(out_path + img)
+def bicubic_downsample(img, _):
+    bicubic = tf.image.resize(
+        images=img,
+        size=(90,65),
+        method=tf.image.ResizeMethod.BICUBIC,
+        preserve_aspect_ratio=False,
+        antialias=False,
+        name=None
+    )
+    return bicubic
 
 
 def load_datasets(lr_path, lr_shape, sr_path, sr_shape, test_size):
