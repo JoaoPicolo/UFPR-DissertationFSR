@@ -1,14 +1,14 @@
 import tensorflow as tf
 from keras.utils import image_dataset_from_directory
 
-def bicubic_downsample(img, _):
+def charbonnier_loss(y_true, y_pred):
+    return tf.reduce_mean(tf.sqrt(tf.square(y_true - y_pred) + tf.square(1e-6)))
+
+def bicubic_downsample(img):
     bicubic = tf.image.resize(
         images=img,
         size=(90,65),
-        method=tf.image.ResizeMethod.BICUBIC,
-        preserve_aspect_ratio=False,
-        antialias=False,
-        name=None
+        method=tf.image.ResizeMethod.BICUBIC
     )
     return bicubic
 
