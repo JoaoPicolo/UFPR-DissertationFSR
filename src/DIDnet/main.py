@@ -32,9 +32,9 @@ class GANMonitor(Callback):
             ax[i, 1].axis("off")
 
             prediction = array_to_img(prediction)
-            prediction.save(
-                "generated_img_{i}_{epoch}.png".format(i=i, epoch=epoch + 1)
-            )
+            # prediction.save(
+            #     "generated_img_{i}_{epoch}.png".format(i=i, epoch=epoch + 1)
+            # )
         plt.show()
         plt.close()
 
@@ -139,15 +139,15 @@ def main():
         identity_loss_fn=MeanAbsoluteError()
     )
 
-    train_sr = image_dataset_from_directory(
+    train = image_dataset_from_directory(
         directory="../../datasets/FEI/", validation_split=0.025, subset="training", seed=123, image_size=(360, 260), batch_size=None)
-    test_sr = image_dataset_from_directory(
+    test = image_dataset_from_directory(
         directory="../../datasets/FEI/", validation_split=0.025, subset="validation", seed=123, image_size=(360, 260), batch_size=None)
     
-    train_sr = (train_sr.map(lambda x, _: x).batch(1))
-    test_sr = (test_sr.map(lambda x, _: x).batch(1))
-    train_lr = (train_sr.map(bicubic_downsample))
-    test_lr = (test_sr.map(bicubic_downsample))
+    train_sr = (train.map(lambda x, _: x).batch(1))
+    test_sr = (test.map(lambda x, _: x).batch(1))
+    train_lr = (train.map(bicubic_downsample).batch(1))
+    test_lr = (test.map(bicubic_downsample).batch(1))
 
     # Callbacks
     plotter = GANMonitor(test=test_lr)
