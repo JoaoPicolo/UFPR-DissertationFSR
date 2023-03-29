@@ -22,17 +22,11 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-# pylint: disable=missing-docstring
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import os
 import re
 import math
 import random
 
-import imageio
 import numpy as np
 from scipy import misc
 from scipy import interpolate
@@ -41,11 +35,9 @@ from sklearn.model_selection import KFold
 from six import iteritems
 from subprocess import Popen, PIPE
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 from tensorflow.python.platform import gfile
 from tensorflow.python.training import training
-
-tf.disable_v2_behavior()
 
 def triplet_loss(anchor, positive, negative, alpha):
     """Calculate the triplet loss according to the FaceNet paper
@@ -246,11 +238,11 @@ def to_rgb(img):
     ret[:, :, 0] = ret[:, :, 1] = ret[:, :, 2] = img
     return ret
   
-def load_data(image_paths, do_random_crop, do_random_flip, image_size, do_prewhiten=True):
-    nrof_samples = len(image_paths)
+def load_data(images, do_random_crop, do_random_flip, image_size, do_prewhiten=True):
+    nrof_samples = len(images)
     images = np.zeros((nrof_samples, image_size, image_size, 3))
     for i in range(nrof_samples):
-        img = imageio.imread(image_paths[i])
+        img = images[i]
         if img.ndim == 2:
             img = to_rgb(img)
         if do_prewhiten:
@@ -370,23 +362,21 @@ def split_dataset(dataset, split_ratio, min_nrof_images_per_class, mode):
 def load_model(model, input_map=None):
     # Check if the model is a model directory (containing a metagraph and a checkpoint file)
     #  or if it is a protobuf file with a frozen graph
-    model_exp = os.path.expanduser(model)
-    model_exp = model_exp + "/" + model_exp.split("/")[1] + ".pb"
-    if (os.path.isfile(model_exp)):
-        print('Model filename: %s' % model_exp)
-        with gfile.FastGFile(model_exp,'rb') as f:
-            graph_def = tf.GraphDef()
+    if (os.path.isfile(model)):
+        print('Model filename: %s' % model)
+        with gfile.FastGFile(model,'rb') as f:
+            graph_def = tf.compat.v1.GraphDef()
             graph_def.ParseFromString(f.read())
             tf.import_graph_def(graph_def, input_map=input_map, name='')
     else:
-        print('Model directory: %s' % model_exp)
-        meta_file, ckpt_file = get_model_filenames(model_exp)
+        print('Model directory: %s' % model)
+        meta_file, ckpt_file = get_model_filenames(model)
         
         print('Metagraph file: %s' % meta_file)
         print('Checkpoint file: %s' % ckpt_file)
       
-        saver = tf.train.import_meta_graph(os.path.join(model_exp, meta_file), input_map=input_map)
-        saver.restore(tf.get_default_session(), os.path.join(model_exp, ckpt_file))
+        saver = tf.train.import_meta_graph(os.path.join(model, meta_file), input_map=input_map)
+        saver.restore(tf.get_default_session(), os.path.join(model, ckpt_file))
     
 def get_model_filenames(model_dir):
     files = os.listdir(model_dir)
@@ -576,3 +566,45 @@ def write_arguments_to_file(args, filename):
     with open(filename, 'w') as f:
         for key, value in iteritems(vars(args)):
             f.write('%s: %s\n' % (key, str(value)))
+
+
+
+def get_embeddings(fst_image, snd_image, image_size=160, image_batch=500):
+    with tf.Graph().as_default():
+        with tf.compat.v1.Session() as sess:
+            # Load the model
+            load_model("./models/face-recognition/face-recognition.pb")
+
+            # Get input and output tensors
+            images_placeholder = tf.compat.v1.get_default_graph().get_tensor_by_name("input:0")
+            embeddings = tf.compat.v1.get_default_graph().get_tensor_by_name("embeddings:0")
+            phase_train_placeholder = tf.compat.v1.get_default_graph().get_tensor_by_name("phase_train:0")
+
+            # Run forward pass to calculate embeddings
+            nrof_images = 2
+            print('Number of images: ', nrof_images)
+            batch_size = image_batch
+            if nrof_images % batch_size == 0:
+                nrof_batches = nrof_images // batch_size
+            else:
+                nrof_batches = (nrof_images // batch_size) + 1
+            print('Number of batches: ', nrof_batches)
+            embedding_size = embeddings.get_shape()[1]
+            emb_array = np.zeros((nrof_images, embedding_size))
+
+            for i in range(nrof_batches):
+                if i == nrof_batches - 1:
+                    n = nrof_images
+                else:
+                    n = i*batch_size + batch_size
+                # Get images for the batch
+                images = load_data([fst_image, snd_image], False, False, image_size)
+                feed_dict = {images_placeholder: images,
+                             phase_train_placeholder: False}
+                # Use the facenet model to calculate embeddings
+                embed = sess.run(embeddings, feed_dict=feed_dict)
+                emb_array[i*batch_size:n, :] = embed
+
+            # This was changed in comparison with the original code available at GitHub
+            # Instead of saving the embeddings, just return them
+            return emb_array

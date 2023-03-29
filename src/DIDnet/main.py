@@ -1,15 +1,19 @@
+import sys
+
 import numpy as np
 import matplotlib.pyplot as plt
 
 import tensorflow as tf
 from keras import Model
 from keras.optimizers import Adam
-from keras.losses import MeanAbsoluteError
 from keras.callbacks import Callback, ModelCheckpoint
 from keras.utils import image_dataset_from_directory, array_to_img
 
 from generators import get_model_G, get_model_F
-from utils import charbonnier_loss, bicubic_downsample
+from utils import charbonnier_loss, mse_from_embedding, bicubic_downsample
+
+sys.path.append("..")
+from Facenet.facenet import get_embeddings
 
 # Reference: https://keras.io/examples/generative/cyclegan/#build-the-cyclegan-model
 class GANMonitor(Callback):
@@ -38,20 +42,15 @@ class GANMonitor(Callback):
         plt.show()
         plt.close()
 
-# TODO: Remove lambda cycle and identity?
 class DIDnet(Model):
     def __init__(
         self,
         generator_G,
         generator_F,
-        lambda_cycle=10.0,
-        lambda_identity=0.5,
     ):
         super().__init__()
         self.gen_G = generator_G
         self.gen_F = generator_F
-        self.lambda_cycle = lambda_cycle
-        self.lambda_identity = lambda_identity
 
     def compile(
         self,
@@ -81,30 +80,23 @@ class DIDnet(Model):
             # Cycle (SR to LR to SR) y -> x -> y
             cycled_y = self.gen_G(fake_x, training=True)
 
-            # Identity mapping
-            # same_x = self.gen_F(real_x, training=True)
-            # same_y = self.gen_G(real_y, training=True)
-
             # Generator cycle loss
-            # TODO: Verify if it is inverted
-            cycle_loss_G = self.cycle_loss_fn(real_y, cycled_y) * self.lambda_cycle
-            cycle_loss_F = self.cycle_loss_fn(real_x, cycled_x) * self.lambda_cycle
+            cycle_loss_G = self.cycle_loss_fn(real_x, cycled_x)
+            cycle_loss_F = self.cycle_loss_fn(real_y, cycled_y)
+
+            # TODO: Verify if this is not inverted
+            id_embeddings_G = get_embeddings(fake_x, cycled_x)
+            id_embeddings_F = get_embeddings(fake_y, cycled_y)
 
             # Generator identity loss
-            # id_loss_G = (
-            #     self.identity_loss_fn(real_y, same_y)
-            #     * self.lambda_cycle
-            #     * self.lambda_identity
-            # )
-            # id_loss_F = (
-            #     self.identity_loss_fn(real_x, same_x)
-            #     * self.lambda_cycle
-            #     * self.lambda_identity
-            # )
+            id_loss_F = self.identity_loss_fn(
+                id_embeddings_F[0], id_embeddings_F[1])
+            id_loss_G = self.identity_loss_fn(
+                id_embeddings_G[0], id_embeddings_G[1])
 
             # Total generator loss
-            total_loss_G = cycle_loss_G #+ id_loss_G
-            total_loss_F = cycle_loss_F #+ id_loss_F
+            total_loss_G = cycle_loss_G + id_loss_G
+            total_loss_F = cycle_loss_F + id_loss_F
 
         # Get the gradients for the generators
         grads_G = tape.gradient(total_loss_G, self.gen_G.trainable_variables)
@@ -136,14 +128,14 @@ def main():
         gen_G_optimizer=Adam(learning_rate=2e-4, beta_1=0.5),
         gen_F_optimizer=Adam(learning_rate=2e-4, beta_1=0.5),
         cycle_loss_fn=charbonnier_loss,
-        identity_loss_fn=MeanAbsoluteError()
+        identity_loss_fn=mse_from_embedding
     )
 
     train = image_dataset_from_directory(
         directory="../../datasets/FEI/", validation_split=0.025, subset="training", seed=123, image_size=(360, 260), batch_size=None)
     test = image_dataset_from_directory(
         directory="../../datasets/FEI/", validation_split=0.025, subset="validation", seed=123, image_size=(360, 260), batch_size=None)
-    
+
     train_sr = (train.map(lambda x, _: x).batch(1))
     test_sr = (test.map(lambda x, _: x).batch(1))
     train_lr = (train.map(bicubic_downsample).batch(1))
