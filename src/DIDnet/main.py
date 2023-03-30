@@ -23,7 +23,7 @@ class GANMonitor(Callback):
 
     def on_epoch_end(self, epoch, logs=None):
         epoch += 1
-        if (epoch % 10 == 0): # Saves every 10 epochs
+        if (epoch % 10 == 0):  # Saves every 10 epochs
             _, ax = plt.subplots(4, 2, figsize=(12, 12))
             for i, img in enumerate(self.test.take(self.num_img)):
                 prediction = self.model.gen_G(img)
@@ -43,7 +43,8 @@ class GANMonitor(Callback):
                 ax[i, 0].axis("off")
                 ax[i, 1].axis("off")
 
-            plt.savefig(f"./results/results_{epoch}.png")
+                plt.savefig(f"./results/results_{epoch}.png")
+
 
 class DIDnet(Model):
     def __init__(
@@ -108,7 +109,8 @@ class DIDnet(Model):
             loop_loss = total_loss_G + total_loss_F
             identity_loss = id_loss_G + id_loss_F
             rec_loss = mae_loss(real_y, fake_y)
-            channel_loss = charbonnier_loss(tf.image.rgb_to_yuv(fake_y), tf.image.rgb_to_yuv(real_y))
+            channel_loss = charbonnier_loss(
+                tf.image.rgb_to_yuv(fake_y), tf.image.rgb_to_yuv(real_y))
             network_loss = loop_loss + rec_loss + 0.5*identity_loss + 0.5*channel_loss
 
         # Gets the gradients for the generators and optimizes them
@@ -124,7 +126,8 @@ class DIDnet(Model):
 
         # Gets the gradients for the whole network and optimizes it
         grads_network = tape.gradient(network_loss, self.trainable_variables)
-        self.optimizer.apply_gradients(zip(grads_network, self.trainable_variables))
+        self.optimizer.apply_gradients(
+            zip(grads_network, self.trainable_variables))
 
         return {
             "G_loss": total_loss_G,
@@ -149,10 +152,11 @@ def main():
         identity_loss_fn=mse_from_embedding
     )
 
+    # TODO: Change to the right dataset
     train = image_dataset_from_directory(
-        directory="../../datasets/FEI_test/", validation_split=0.1, subset="training", seed=123, image_size=(360, 260), batch_size=None)
+        directory="../../datasets/FEI/", validation_split=0.1, subset="training", seed=123, image_size=(360, 260), batch_size=None)
     test = image_dataset_from_directory(
-        directory="../../datasets/FEI_test/", validation_split=0.1, subset="validation", seed=123, image_size=(360, 260), batch_size=None)
+        directory="../../datasets/FEI/", validation_split=0.1, subset="validation", seed=123, image_size=(360, 260), batch_size=None)
 
     train_sr = (train.map(lambda x, _: x).batch(1))
     test_sr = (test.map(lambda x, _: x).batch(1))
@@ -168,7 +172,7 @@ def main():
 
     didnet.fit(
         tf.data.Dataset.zip((train_lr, train_sr)),
-        epochs=5,
+        epochs=100,
         callbacks=[plotter, model_checkpoint_callback],
     )
 
