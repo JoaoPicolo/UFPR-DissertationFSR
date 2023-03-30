@@ -130,3 +130,5 @@ dmypy.json
 
 /datasets/*
 /src/*/models/*
+/src/*/checkpoints/*
+/src/*/results/*
