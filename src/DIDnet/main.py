@@ -125,7 +125,6 @@ def main():
         identity_loss_fn=mse_from_embedding
     )
 
-    # TODO: Change to the right dataset
     # Loads the dataset and splits
     train, validation, test = get_dataset_split("../../datasets/FEI/", 0.6, 0.2, (360,260))
     train_sr, validation_sr, test_sr = manipulate_dataset(train, validation, test)
