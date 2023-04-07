@@ -1,3 +1,5 @@
+import sys
+
 import tensorflow as tf
 from keras import Model
 from keras.optimizers import Adam
@@ -6,7 +8,10 @@ from keras.callbacks import ModelCheckpoint, EarlyStopping
 from facenet import get_embeddings
 from generators import get_model_G, get_model_F
 from plots import plot_loss_curve, plot_test_dataset
-from utils import charbonnier_loss, mae_loss, mse_from_embedding, get_dataset_split, manipulate_dataset
+from utils import charbonnier_loss, mae_loss, mse_from_embedding
+
+sys.path.append("..")
+from shared.data import  get_dataset_split, manipulate_dataset
 
 # Reference: https://keras.io/examples/generative/cyclegan/#build-the-cyclegan-model
 class DIDnet(Model):
@@ -113,9 +118,12 @@ class DIDnet(Model):
 
 
 def main():
+    lr_shape = (90, 65, 3)
+    hr_shape = (360, 260, 3)
+
     # Get models
-    generator_g = get_model_G(input_shape=(90, 65, 3))
-    generator_f = get_model_F(input_shape=(360, 260, 3))
+    generator_g = get_model_G(input_shape=lr_shape)
+    generator_f = get_model_F(input_shape=hr_shape)
 
     # Create cycle gan model
     didnet = DIDnet(generator_g, generator_f)
@@ -130,9 +138,9 @@ def main():
     )
 
     # Loads the dataset and splits
-    train, validation, test = get_dataset_split("../../datasets/FEI/", 0.6, 0.2, (360, 260))
+    train, validation, test = get_dataset_split("../../datasets/FEI_test/", (hr_shape[0], hr_shape[1]), 0.6, 0.2, 0.2)
     train_hr, validation_hr, test_hr = manipulate_dataset(train, validation, test)
-    train_lr, validation_lr, test_lr = manipulate_dataset(train, validation, test, apply_bicubic=True)
+    train_lr, validation_lr, test_lr = manipulate_dataset(train, validation, test, resize=True, resize_shape=(lr_shape[0], lr_shape[1]))
 
     # Callbacks
     early_stop = EarlyStopping(monitor="network_loss", patience=10, mode="min")
@@ -140,16 +148,20 @@ def main():
         filepath= "./checkpoints/didnet_checkpoints.{epoch:03d}", save_weights_only=True
     )
 
+    # Trains
     history = didnet.fit(
         x=tf.data.Dataset.zip((train_lr, train_hr)),
-        epochs=100,
+        epochs=1,
         callbacks=[model_checkpoint_callback],
         validation_data=tf.data.Dataset.zip((validation_lr, validation_hr))
     )
 
+    # Plot networks curves
     plot_loss_curve("./results", history, "g_loss")
     plot_loss_curve("./results", history, "f_loss")
     plot_loss_curve("./results", history, "network_loss")
+
+    # Plot the test datasets
     didnet.evaluate_test_datasets("./results", test_lr, test_hr)
 
 if __name__ == "__main__":

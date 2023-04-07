@@ -1,10 +1,16 @@
+import sys
+
 import tensorflow as tf
 from keras import Model
 from keras.layers import Subtract
 from keras.optimizers import Adam
+from keras.callbacks import ModelCheckpoint
 
 from generator import get_generator
 from discriminator import get_discriminator
+
+sys.path.append("..")
+from shared.data import  get_dataset_split, manipulate_dataset
 
 class SPGAN(Model):
     def __init__(self, generator, discriminator):
@@ -33,9 +39,12 @@ class SPGAN(Model):
             exit(0)
 
 def main():
+    lr_shape = (54, 44, 3)
+    hr_shape = (218, 178, 3)
+
     # Get models
-    generator = get_generator(input_shape=(96, 96, 3))
-    discriminator = get_discriminator(input_shape=(96, 96, 3))
+    generator = get_generator(input_shape=lr_shape)
+    discriminator = get_discriminator(input_shape=hr_shape)
    
     # Create gan model
     spgan = SPGAN(generator, discriminator)
@@ -47,9 +56,22 @@ def main():
     )
 
     # Loads the dataset and splits
-    train, validation, test = get_dataset_split("../../datasets/FEI/", 0.6, 0.2, (360,260))
-    train_sr, validation_sr, test_sr = manipulate_dataset(train, validation, test)
-    train_lr, validation_lr, test_lr = manipulate_dataset(train, validation, test, apply_bicubic=True)
+    train, validation, test = get_dataset_split("../../datasets/CelebA_test/", (hr_shape[0], hr_shape[1]), 0.6, 0.2, 0.2)
+    train_hr, validation_hr, test_hr = manipulate_dataset(train, validation, test)
+    train_lr, validation_lr, test_lr = manipulate_dataset(train, validation, test, resize=True, resize_shape=(lr_shape[0], lr_shape[1]))
+
+    # Callbacks
+    model_checkpoint_callback = ModelCheckpoint(
+        filepath= "./checkpoints/spgan_checkpoints.{epoch:03d}", save_weights_only=True
+    )
+
+    # Trains
+    history = spgan.fit(
+        x=tf.data.Dataset.zip((train_lr, train_hr)),
+        epochs=100,
+        callbacks=[model_checkpoint_callback],
+        validation_data=tf.data.Dataset.zip((validation_lr, validation_hr))
+    )
 
 
 if __name__ == "__main__":
