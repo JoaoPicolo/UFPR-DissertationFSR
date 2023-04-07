@@ -131,7 +131,7 @@ def main():
 
     # Loads the dataset and splits
     train, validation, test = get_dataset_split("../../datasets/FEI/", 0.6, 0.2, (360, 260))
-    train_sr, validation_sr, test_sr = manipulate_dataset(train, validation, test)
+    train_hr, validation_hr, test_hr = manipulate_dataset(train, validation, test)
     train_lr, validation_lr, test_lr = manipulate_dataset(train, validation, test, apply_bicubic=True)
 
     # Callbacks
@@ -141,16 +141,16 @@ def main():
     )
 
     history = didnet.fit(
-        x=tf.data.Dataset.zip((train_lr, train_sr)),
+        x=tf.data.Dataset.zip((train_lr, train_hr)),
         epochs=100,
         callbacks=[model_checkpoint_callback],
-        validation_data=tf.data.Dataset.zip((validation_lr, validation_sr))
+        validation_data=tf.data.Dataset.zip((validation_lr, validation_hr))
     )
 
     plot_loss_curve("./results", history, "g_loss")
     plot_loss_curve("./results", history, "f_loss")
     plot_loss_curve("./results", history, "network_loss")
-    didnet.evaluate_test_datasets("./results", test_lr, test_sr)
+    didnet.evaluate_test_datasets("./results", test_lr, test_hr)
 
 if __name__ == "__main__":
     main()
