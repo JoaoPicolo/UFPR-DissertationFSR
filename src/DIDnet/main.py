@@ -44,16 +44,23 @@ class DIDnet(Model):
         cycle_loss_G = self.cycle_loss_fn(real_x, cycled_x)
         cycle_loss_F = self.cycle_loss_fn(real_y, cycled_y)
 
-        # TODO: Verify if this is not inverted
         # Get face embeddings from Facenet
         id_embeddings_G = get_embeddings(fake_x, cycled_x)
         id_embeddings_F = get_embeddings(fake_y, cycled_y)
 
         # Generator identity loss
+        # Results 1 (with early stop) and 3 (100 epochs)
         id_loss_F = self.identity_loss_fn(
             id_embeddings_F[0], id_embeddings_F[1])
         id_loss_G = self.identity_loss_fn(
             id_embeddings_G[0], id_embeddings_G[1])
+
+        # Results 2 (with early stop) and 4 (100 epochs)
+        # id_loss_G = self.identity_loss_fn(
+        #    id_embeddings_F[0], id_embeddings_F[1])
+        # id_loss_F = self.identity_loss_fn(
+        #    id_embeddings_G[0], id_embeddings_G[1])
+
 
         # Total generator loss
         total_loss_G = cycle_loss_G + id_loss_G
@@ -139,8 +146,8 @@ def main():
 
     history = didnet.fit(
         x=tf.data.Dataset.zip((train_lr, train_sr)),
-        epochs=5,
-        callbacks=[early_stop, model_checkpoint_callback],
+        epochs=100,
+        callbacks=[model_checkpoint_callback],
         validation_data=tf.data.Dataset.zip((validation_lr, validation_sr))
     )
 
