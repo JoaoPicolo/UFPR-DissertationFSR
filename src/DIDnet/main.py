@@ -71,7 +71,7 @@ class DIDnet(Model):
 
 
     def train_step(self, batch_data):
-        # x is LR and y is SR
+        # x is LR and y is HR
         real_x, real_y = batch_data
 
         with tf.GradientTape(persistent=True) as tape:
@@ -106,15 +106,16 @@ class DIDnet(Model):
     
     def evaluate_test_datasets(self, path, lr_dataset, sr_dataset):
         plot_test_dataset(path, "LR", self.gen_G, lr_dataset)
-        plot_test_dataset(path, "SR", self.gen_F, sr_dataset)
+        plot_test_dataset(path, "HR", self.gen_F, sr_dataset)
 
 
 def main():
-    g = get_model_G(input_shape=(90, 65, 3))
-    f = get_model_F(input_shape=(360, 260, 3))
+    # Get models
+    generator_g = get_model_G(input_shape=(90, 65, 3))
+    generator_f = get_model_F(input_shape=(360, 260, 3))
 
     # Create cycle gan model
-    didnet = DIDnet(g, f)
+    didnet = DIDnet(generator_g, generator_f)
 
     # Compile the model
     didnet.compile(
@@ -125,9 +126,8 @@ def main():
         identity_loss_fn=mse_from_embedding
     )
 
-    # TODO: Change to the right dataset
     # Loads the dataset and splits
-    train, validation, test = get_dataset_split("../../datasets/FEI/", 0.6, 0.2, (360,260))
+    train, validation, test = get_dataset_split("../../datasets/FEI/", 0.6, 0.2, (360, 260))
     train_sr, validation_sr, test_sr = manipulate_dataset(train, validation, test)
     train_lr, validation_lr, test_lr = manipulate_dataset(train, validation, test, apply_bicubic=True)
 
