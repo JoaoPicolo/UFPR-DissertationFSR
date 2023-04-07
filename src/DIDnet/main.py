@@ -1,16 +1,12 @@
-import sys
-
 import tensorflow as tf
 from keras import Model
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint, EarlyStopping
 
+from facenet import get_embeddings
 from generators import get_model_G, get_model_F
 from plots import plot_loss_curve, plot_test_dataset
 from utils import charbonnier_loss, mae_loss, mse_from_embedding, get_dataset_split, manipulate_dataset
-
-sys.path.append("..")
-from Facenet.facenet import get_embeddings
 
 # Reference: https://keras.io/examples/generative/cyclegan/#build-the-cyclegan-model
 class DIDnet(Model):
