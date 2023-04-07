@@ -1,82 +1,55 @@
 import tensorflow as tf
-from keras import Input, Model
-from keras.initializers import RandomUniform
-from keras.layers import Add, Conv2D, UpSampling2D, concatenate
+from keras import Model
+from keras.layers import Subtract
+from keras.optimizers import Adam
 
-# SPGAN uses the generator from RDN, reference: https://paperswithcode.com/paper/residual-dense-network-for-image-super
-def residual_dense_blocks(inputs, C, D, G, G0, kernel_size, initializer):
-    rdb_concat = []
-    rdb_in = inputs
-    for _ in range(D):
-        x = rdb_in
-        for _ in range(C):
-            out = Conv2D(G, kernel_size, padding="same",
-                         activation="relu", kernel_initializer=initializer)(x)
-            x = concatenate([x, out], axis=3)
+from generator import get_generator
+from discriminator import get_discriminator
 
-        x = Conv2D(G0, kernel_size=1, kernel_initializer=initializer)(x)
-        rdb_in = Add()([x, rdb_in])
-        rdb_concat.append(rdb_in)
+class SPGAN(Model):
+    def __init__(self, generator, discriminator):
+        super().__init__()
+        self.generator = generator
+        self.discriminator = discriminator
 
-    return concatenate(rdb_concat, axis=3)
+    def compile(self, generator_optimizer, discriminator_optimizer):
+        super().compile()
+        self.generator_optimizer = generator_optimizer
+        self.discriminator_optimizer = discriminator_optimizer
 
+    def train_step(self, batch_data):
+        # x is LR and y is HR
+        lr_image, hr_image = batch_data
 
-def upscale_block(inputs, output_dim, scale, initializer, method="ups"):
-    x = Conv2D(64, kernel_size=5, strides=1, padding="same",
-               activation="relu", kernel_initializer=initializer)(inputs)
-    x = Conv2D(32, kernel_size=3, padding="same",
-               activation="relu", kernel_initializer=initializer)(x)
+        with tf.GradientTape(persistent=True) as tape:
+            # LR to SR
+            sr_image = self.generator(lr_image, training=True)
 
-    if method == "shuffle":
-        x = Conv2D(output_dim * (scale ** 2), kernel_size=3,
-                   padding="same", kernel_initializer=initializer)(x)
-        x = tf.nn.depth_to_space(x, block_size=scale)
-    elif method == "ups":
-        x = Conv2D(output_dim * (scale ** 2), kernel_size=3,
-                   padding="same", kernel_initializer=initializer)(x)
-        x = UpSampling2D(size=scale)(x)
-
-    return x
-
-
-def get_generator(input_shape):
-    inputs = Input(shape=input_shape)
-
-    # Variables
-    output_dim = 3
-    kernel_size = 3
-    C_layers_in_rdb = 6
-    D_num_rdb = 20
-    G_conv_output_dim = 64
-    G0_rdb_output_dim = 64
-    scale_factor = 4
-    init_extreme_val = 0.05
-    initializer = RandomUniform(minval=-init_extreme_val, maxval=init_extreme_val, seed=None)
-
-    # Defines the network
-    f_m1 = Conv2D(G0_rdb_output_dim, kernel_size, padding="same",
-                  kernel_initializer=initializer)(inputs)
-    f_0 = Conv2D(G0_rdb_output_dim, kernel_size, padding="same",
-                 kernel_initializer=initializer)(f_m1)
-    fd = residual_dense_blocks(f_0, C_layers_in_rdb, D_num_rdb,
-                               G_conv_output_dim, G0_rdb_output_dim, kernel_size, initializer)
-    gff_1 = Conv2D(G0_rdb_output_dim, kernel_size=1,
-                   padding="same", kernel_initializer=initializer)(fd)
-    gff_2 = Conv2D(G0_rdb_output_dim, kernel_size, padding="same",
-                   kernel_initializer=initializer)(gff_1)
-    fdf = Add()([gff_2, f_m1])
-    fu = upscale_block(fdf, output_dim, scale_factor, initializer)
-    outputs = Conv2D(output_dim, kernel_size, padding="same",
-                     kernel_initializer=initializer)(fu)
-
-    # Defines the model
-    model = Model(inputs, outputs, name="Generator")
-
-    return model
-
+            # TODO: Verify if it should be separeted or channel wise
+            sr_discriminated = self.discriminator(sr_image, training=True)
+            hr_discriminated = self.discriminator(hr_image, training=True)
+            diff = Subtract()[sr_discriminated, hr_discriminated]
+            print(diff.shape)
+            exit(0)
 
 def main():
-    print("Hello World")
+    # Get models
+    generator = get_generator(input_shape=(96, 96, 3))
+    discriminator = get_discriminator(input_shape=(96, 96, 3))
+   
+    # Create gan model
+    spgan = SPGAN(generator, discriminator)
+
+    # Compile the model
+    spgan.compile(
+        generator_optimizer=Adam(learning_rate=1e-4, beta_1=0.5, beta_2=0.999),
+        discriminator_optimizer=Adam(learning_rate=1e-4, beta_1=0.5, beta_2=0.999),
+    )
+
+    # Loads the dataset and splits
+    train, validation, test = get_dataset_split("../../datasets/FEI/", 0.6, 0.2, (360,260))
+    train_sr, validation_sr, test_sr = manipulate_dataset(train, validation, test)
+    train_lr, validation_lr, test_lr = manipulate_dataset(train, validation, test, apply_bicubic=True)
 
 
 if __name__ == "__main__":
