@@ -50,7 +50,7 @@ class DIDnet(Model):
         id_embeddings_F = get_embeddings(fake_y, cycled_y)
 
         # Generator identity loss
-        # Results 1 (with early stop) and 3 (100 epochs)
+        # Results 1 (with early stop) and 3 (100 epochs)and 5 (200 epochs)
         id_loss_F = self.identity_loss_fn(
             id_embeddings_F[0], id_embeddings_F[1])
         id_loss_G = self.identity_loss_fn(
@@ -129,16 +129,17 @@ def main():
     didnet = DIDnet(generator_g, generator_f)
 
     # Compile the model
+    # Test 6 (Changed optimizer from 2e-4 to 1e-4 and remove beta_1=0.5)
     didnet.compile(
-        optimizer=Adam(learning_rate=2e-4, beta_1=0.5),
-        gen_G_optimizer=Adam(learning_rate=2e-4, beta_1=0.5),
-        gen_F_optimizer=Adam(learning_rate=2e-4, beta_1=0.5),
+        optimizer=Adam(learning_rate=1e-4),
+        gen_G_optimizer=Adam(learning_rate=1e-4),
+        gen_F_optimizer=Adam(learning_rate=1e-4),
         cycle_loss_fn=charbonnier_loss,
         identity_loss_fn=mse_from_embedding
     )
 
     # Loads the dataset and splits
-    train, validation, test = get_dataset_split("../../datasets/FEI_test/", (hr_shape[0], hr_shape[1]), 0.6, 0.2, 0.2)
+    train, validation, test = get_dataset_split("../../datasets/FEI/", (hr_shape[0], hr_shape[1]), 0.6, 0.2, 0.2)
     train_hr, validation_hr, test_hr = manipulate_dataset(train, validation, test)
     train_lr, validation_lr, test_lr = manipulate_dataset(train, validation, test, resize=True, resize_shape=(lr_shape[0], lr_shape[1]))
 
@@ -151,7 +152,7 @@ def main():
     # Trains
     history = didnet.fit(
         x=tf.data.Dataset.zip((train_lr, train_hr)),
-        epochs=1,
+        epochs=100,
         callbacks=[model_checkpoint_callback],
         validation_data=tf.data.Dataset.zip((validation_lr, validation_hr))
     )

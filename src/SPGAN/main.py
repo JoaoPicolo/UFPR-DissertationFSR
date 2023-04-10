@@ -2,7 +2,6 @@ import sys
 
 import tensorflow as tf
 from keras import Model
-from keras.layers import Subtract
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint
 
@@ -34,13 +33,15 @@ class SPGAN(Model):
             # TODO: Verify if it should be separeted or channel wise
             sr_discriminated = self.discriminator(sr_image, training=True)
             hr_discriminated = self.discriminator(hr_image, training=True)
-            diff = Subtract()[sr_discriminated, hr_discriminated]
+            diff = tf.subtract(sr_discriminated, hr_discriminated)
+            print(sr_discriminated.shape)
+            print(hr_discriminated.shape)
             print(diff.shape)
             exit(0)
 
 def main():
     lr_shape = (54, 44, 3)
-    hr_shape = (218, 178, 3)
+    hr_shape = (216, 176, 3)
 
     # Get models
     generator = get_generator(input_shape=lr_shape)
@@ -68,7 +69,7 @@ def main():
     # Trains
     history = spgan.fit(
         x=tf.data.Dataset.zip((train_lr, train_hr)),
-        epochs=100,
+        epochs=1,
         callbacks=[model_checkpoint_callback],
         validation_data=tf.data.Dataset.zip((validation_lr, validation_hr))
     )
