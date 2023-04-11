@@ -31,17 +31,15 @@ class SPGAN(Model):
             sr_image = self.generator(lr_image, training=True)
 
             # TODO: Verify if it should be separeted or channel wise
-            sr_discriminated = self.discriminator(sr_image, training=True)
-            hr_discriminated = self.discriminator(hr_image, training=True)
-            diff = tf.subtract(sr_discriminated, hr_discriminated)
+            concatenated_image = tf.concat([sr_image, hr_image], axis=-1)
+            sr_discriminated = self.discriminator(concatenated_image, training=True)
+            print(concatenated_image.shape)
             print(sr_discriminated.shape)
-            print(hr_discriminated.shape)
-            print(diff.shape)
             exit(0)
 
 def main():
     lr_shape = (54, 44, 3)
-    hr_shape = (216, 176, 3)
+    hr_shape = (216, 176, 6)
 
     # Get models
     generator = get_generator(input_shape=lr_shape)

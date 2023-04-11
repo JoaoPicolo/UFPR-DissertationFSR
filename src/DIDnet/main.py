@@ -46,22 +46,13 @@ class DIDnet(Model):
         cycle_loss_F = self.cycle_loss_fn(real_y, cycled_y)
 
         # Get face embeddings from Facenet
-        id_embeddings_G = get_embeddings(fake_x, cycled_x)
-        id_embeddings_F = get_embeddings(fake_y, cycled_y)
+        id_embeddings_G = get_embeddings(fake_y, cycled_y)
+        id_embeddings_F = get_embeddings(fake_x, cycled_x)
 
-        # Generator identity loss
-        # Results 1 (with early stop) and 3 (100 epochs)and 5 (200 epochs)
-        id_loss_F = self.identity_loss_fn(
-            id_embeddings_F[0], id_embeddings_F[1])
         id_loss_G = self.identity_loss_fn(
             id_embeddings_G[0], id_embeddings_G[1])
-
-        # Results 2 (with early stop) and 4 (100 epochs)
-        # id_loss_G = self.identity_loss_fn(
-        #    id_embeddings_F[0], id_embeddings_F[1])
-        # id_loss_F = self.identity_loss_fn(
-        #    id_embeddings_G[0], id_embeddings_G[1])
-
+        id_loss_F = self.identity_loss_fn(
+            id_embeddings_F[0], id_embeddings_F[1])
 
         # Total generator loss
         total_loss_G = cycle_loss_G + id_loss_G
@@ -129,7 +120,6 @@ def main():
     didnet = DIDnet(generator_g, generator_f)
 
     # Compile the model
-    # Test 6 (Changed optimizer from 2e-4 to 1e-4 and remove beta_1=0.5)
     didnet.compile(
         optimizer=Adam(learning_rate=1e-4),
         gen_G_optimizer=Adam(learning_rate=1e-4),
