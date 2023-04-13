@@ -363,7 +363,6 @@ def load_model(model, input_map=None):
     # Check if the model is a model directory (containing a metagraph and a checkpoint file)
     #  or if it is a protobuf file with a frozen graph
     if (os.path.isfile(model)):
-        print('Model filename: %s' % model)
         with gfile.FastGFile(model,'rb') as f:
             graph_def = tf.compat.v1.GraphDef()
             graph_def.ParseFromString(f.read())
@@ -582,13 +581,11 @@ def get_embeddings(fst_image, snd_image, image_size=160, image_batch=500):
 
             # Run forward pass to calculate embeddings
             nrof_images = 2
-            print('Number of images: ', nrof_images)
             batch_size = image_batch
             if nrof_images % batch_size == 0:
                 nrof_batches = nrof_images // batch_size
             else:
                 nrof_batches = (nrof_images // batch_size) + 1
-            print('Number of batches: ', nrof_batches)
             embedding_size = embeddings.get_shape()[1]
             emb_array = np.zeros((nrof_images, embedding_size))
 

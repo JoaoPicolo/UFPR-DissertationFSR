@@ -20,8 +20,8 @@ class DIDnet(Model):
         self.gen_G = generator_G
         self.gen_F = generator_F
 
-    def compile(self, optimizer, gen_G_optimizer,
-        gen_F_optimizer, cycle_loss_fn, identity_loss_fn
+    def compile(self, optimizer, gen_G_optimizer, gen_F_optimizer,
+        cycle_loss_fn, identity_loss_fn, test_size
     ):
         super().compile()
         self.optimizer = optimizer
@@ -29,6 +29,7 @@ class DIDnet(Model):
         self.gen_F_optimizer = gen_F_optimizer
         self.cycle_loss_fn = cycle_loss_fn
         self.identity_loss_fn = identity_loss_fn
+        self.test_size = test_size
 
     def get_losses(self, real_x, real_y, isTraining=False):
         # LR to SR
@@ -42,17 +43,19 @@ class DIDnet(Model):
         cycled_y = self.gen_G(fake_x, training=isTraining)
 
         # Generator cycle loss
-        cycle_loss_G = self.cycle_loss_fn(real_x, cycled_x)
-        cycle_loss_F = self.cycle_loss_fn(real_y, cycled_y)
+        # TODO: Divide by N (check if it improves)
+        cycle_loss_G = self.cycle_loss_fn(real_x, cycled_x) / self.test_size
+        cycle_loss_F = self.cycle_loss_fn(real_y, cycled_y) / self.test_size
 
         # Get face embeddings from Facenet
         id_embeddings_G = get_embeddings(fake_y, cycled_y)
         id_embeddings_F = get_embeddings(fake_x, cycled_x)
 
+        # TODO: Divide by N (check if it improves)
         id_loss_G = self.identity_loss_fn(
-            id_embeddings_G[0], id_embeddings_G[1])
+            id_embeddings_G[0], id_embeddings_G[1]) / self.test_size
         id_loss_F = self.identity_loss_fn(
-            id_embeddings_F[0], id_embeddings_F[1])
+            id_embeddings_F[0], id_embeddings_F[1]) / self.test_size
 
         # Total generator loss
         total_loss_G = cycle_loss_G + id_loss_G
@@ -61,9 +64,9 @@ class DIDnet(Model):
         # Network Loss
         loop_loss = cycle_loss_G + cycle_loss_F
         identity_loss = id_loss_G + id_loss_F
-        rec_loss = mae_loss(real_y, fake_y)
-        channel_loss = charbonnier_loss(
-            tf.image.rgb_to_yuv(fake_y), tf.image.rgb_to_yuv(real_y))
+        # TODO: Divide by N (check if it improves)
+        rec_loss = mae_loss(real_y, fake_y) / self.test_size
+        channel_loss = charbonnier_loss(tf.image.rgb_to_yuv(fake_y), tf.image.rgb_to_yuv(real_y)) / self.test_size
         network_loss = loop_loss + rec_loss + 0.5*identity_loss + 0.5*channel_loss
 
         return { "g_loss": total_loss_G, "f_loss": total_loss_F, "network_loss": network_loss }
@@ -109,8 +112,12 @@ class DIDnet(Model):
 
 
 def main():
+    # Loads the dataset and splits
     lr_shape = (90, 65, 3)
     hr_shape = (360, 260, 3)
+    train, validation, test = get_dataset_split("../../datasets/FEI/", (hr_shape[0], hr_shape[1]), 0.6, 0.2, 0.2)
+    train_hr, validation_hr, test_hr = manipulate_dataset(train, validation, test)
+    train_lr, validation_lr, test_lr = manipulate_dataset(train, validation, test, resize=True, resize_shape=(lr_shape[0], lr_shape[1]))
 
     # Get models
     generator_g = get_model_G(input_shape=lr_shape)
@@ -125,13 +132,9 @@ def main():
         gen_G_optimizer=Adam(learning_rate=1e-4),
         gen_F_optimizer=Adam(learning_rate=1e-4),
         cycle_loss_fn=charbonnier_loss,
-        identity_loss_fn=mse_from_embedding
+        identity_loss_fn=mse_from_embedding,
+        test_size=len(train)
     )
-
-    # Loads the dataset and splits
-    train, validation, test = get_dataset_split("../../datasets/FEI/", (hr_shape[0], hr_shape[1]), 0.6, 0.2, 0.2)
-    train_hr, validation_hr, test_hr = manipulate_dataset(train, validation, test)
-    train_lr, validation_lr, test_lr = manipulate_dataset(train, validation, test, resize=True, resize_shape=(lr_shape[0], lr_shape[1]))
 
     # Callbacks
     early_stop = EarlyStopping(monitor="network_loss", patience=10, mode="min")
