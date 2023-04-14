@@ -3,12 +3,11 @@ import math
 import tensorflow as tf
 from keras.utils import image_dataset_from_directory
 
-
-def bicubic_downsample(image, output_shape, resize_method):
-    bicubic = tf.image.resize(
+def resize_image(image, output_shape, resize_method):
+    resized = tf.image.resize(
         image, size=output_shape, method=resize_method
     )
-    return bicubic
+    return resized
 
 
 def manipulate_dataset(
@@ -21,13 +20,13 @@ def manipulate_dataset(
         test_new = (test.map(lambda x, _: x).batch(batch_size))
     else:
         train_new = (train.map(
-            lambda x, _: bicubic_downsample(x, resize_shape, resize_method)
+            lambda x, _: resize_image(x, resize_shape, resize_method)
         ).batch(batch_size))
         validation_new = (validation.map(
-            lambda x, _: bicubic_downsample(x, resize_shape, resize_method)
+            lambda x, _: resize_image(x, resize_shape, resize_method)
         ).batch(batch_size))
         test_new = (test.map(
-            lambda x, _: bicubic_downsample(x, resize_shape, resize_method)
+            lambda x, _: resize_image(x, resize_shape, resize_method)
         ).batch(batch_size))
 
     return train_new, validation_new, test_new

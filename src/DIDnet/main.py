@@ -7,11 +7,11 @@ from keras.callbacks import ModelCheckpoint, EarlyStopping
 
 from facenet import get_embeddings
 from generators import get_model_G, get_model_F
-from plots import plot_loss_curve, plot_test_dataset
 from utils import charbonnier_loss, mae_loss, mse_from_embedding
 
 sys.path.append("..")
-from shared.data import  get_dataset_split, manipulate_dataset
+from shared.plots import plot_loss_curve, plot_test_dataset
+from shared.data import get_dataset_split, manipulate_dataset
 
 # Reference: https://keras.io/examples/generative/cyclegan/#build-the-cyclegan-model
 class DIDnet(Model):
