@@ -1,4 +1,5 @@
 import sys
+import argparse
 
 import tensorflow as tf
 from keras import Model
@@ -11,6 +12,13 @@ from discriminator import get_discriminator
 sys.path.append("..")
 from shared.plots import plot_loss_curve, plot_test_dataset
 from shared.data import resize_image, get_dataset_split, manipulate_dataset
+
+def get_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-p", "--path", type=str, help="Path to the images directory")
+    args = parser.parse_args()
+
+    return args
 
 class SPGAN(Model):
     def __init__(self, generator, discriminator):
@@ -83,8 +91,14 @@ class SPGAN(Model):
         plot_test_dataset(path, "LR", self.generator, lr_dataset)
 
 def main():
+    args = get_parser()
+
+    # Loads the dataset and splits
     lr_shape = (54, 44, 3)
     hr_shape = (216, 176, 6)
+    train, validation, test = get_dataset_split(args.path, (hr_shape[0], hr_shape[1]), 0.6, 0.2, 0.2)
+    train_hr, validation_hr, test_hr = manipulate_dataset(train, validation, test)
+    train_lr, validation_lr, test_lr = manipulate_dataset(train, validation, test, resize=True, resize_shape=(lr_shape[0], lr_shape[1]))
 
     # Get models
     generator = get_generator(input_shape=lr_shape)
@@ -98,11 +112,6 @@ def main():
         generator_optimizer=Adam(learning_rate=1e-4, beta_1=0.5, beta_2=0.999),
         discriminator_optimizer=Adam(learning_rate=1e-4, beta_1=0.5, beta_2=0.999),
     )
-
-    # Loads the dataset and splits
-    train, validation, test = get_dataset_split("../../datasets/CelebA_test/", (hr_shape[0], hr_shape[1]), 0.6, 0.2, 0.2)
-    train_hr, validation_hr, test_hr = manipulate_dataset(train, validation, test)
-    train_lr, validation_lr, test_lr = manipulate_dataset(train, validation, test, resize=True, resize_shape=(lr_shape[0], lr_shape[1]))
 
     # Callbacks
     model_checkpoint_callback = ModelCheckpoint(

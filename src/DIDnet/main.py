@@ -1,4 +1,5 @@
 import sys
+import argparse
 
 import tensorflow as tf
 from keras import Model
@@ -12,6 +13,13 @@ from utils import charbonnier_loss, mae_loss, mse_from_embedding
 sys.path.append("..")
 from shared.plots import plot_loss_curve, plot_test_dataset
 from shared.data import get_dataset_split, manipulate_dataset
+
+def get_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-p", "--path", type=str, help="Path to the images directory")
+    args = parser.parse_args()
+
+    return args
 
 # Reference: https://keras.io/examples/generative/cyclegan/#build-the-cyclegan-model
 class DIDnet(Model):
@@ -112,10 +120,12 @@ class DIDnet(Model):
 
 
 def main():
+    args = get_parser()
+
     # Loads the dataset and splits
     lr_shape = (90, 65, 3)
     hr_shape = (360, 260, 3)
-    train, validation, test = get_dataset_split("../../datasets/FEI/", (hr_shape[0], hr_shape[1]), 0.6, 0.2, 0.2)
+    train, validation, test = get_dataset_split(args.path, (hr_shape[0], hr_shape[1]), 0.6, 0.2, 0.2)
     train_hr, validation_hr, test_hr = manipulate_dataset(train, validation, test)
     train_lr, validation_lr, test_lr = manipulate_dataset(train, validation, test, resize=True, resize_shape=(lr_shape[0], lr_shape[1]))
 
