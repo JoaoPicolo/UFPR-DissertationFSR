@@ -1,5 +1,4 @@
 import sys
-import argparse
 
 import tensorflow as tf
 from keras import Model
@@ -11,15 +10,11 @@ from generators import get_model_G, get_model_F
 from utils import charbonnier_loss, mae_loss, mse_from_embedding
 
 sys.path.append("..")
+from shared.metrics import MetricsCallback
+from shared.utils import get_parser
 from shared.plots import plot_loss_curve, plot_test_dataset
 from shared.data import get_dataset_split, manipulate_dataset
 
-def get_parser():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-p", "--path", type=str, help="Path to the images directory")
-    args = parser.parse_args()
-
-    return args
 
 # Reference: https://keras.io/examples/generative/cyclegan/#build-the-cyclegan-model
 class DIDnet(Model):
@@ -39,7 +34,7 @@ class DIDnet(Model):
         self.identity_loss_fn = identity_loss_fn
         self.test_size = test_size
 
-    def get_losses(self, real_x, real_y, isTraining=False):
+    def get_metrics(self, real_x, real_y, isTraining=False):
         # LR to SR
         fake_y = self.gen_G(real_x, training=isTraining)
         # SR to LR
@@ -77,7 +72,15 @@ class DIDnet(Model):
         channel_loss = charbonnier_loss(tf.image.rgb_to_yuv(fake_y), tf.image.rgb_to_yuv(real_y)) / self.test_size
         network_loss = loop_loss + rec_loss + 0.5*identity_loss + 0.5*channel_loss
 
-        return { "g_loss": total_loss_G, "f_loss": total_loss_F, "network_loss": network_loss }
+        # Computes other metrics
+        psnr = tf.image.psnr(real_y, fake_y, max_val=255)
+        ssim = tf.image.ssim(real_y, fake_y, max_val=255)
+        cs = tf.keras.losses.cosine_similarity(real_y, fake_y)
+
+        return { 
+            "g_loss": total_loss_G, "f_loss": total_loss_F, "network_loss": network_loss,
+            "psnr": psnr, "ssim": ssim, "cs": cs
+        }
 
 
     def train_step(self, batch_data):
@@ -85,34 +88,34 @@ class DIDnet(Model):
         real_x, real_y = batch_data
 
         with tf.GradientTape(persistent=True) as tape:
-            losses = self.get_losses(real_x, real_y, isTraining=True)
+            metrics = self.get_metrics(real_x, real_y, isTraining=True)
 
         # Gets the gradients for the generators and optimizes them
-        grads_G = tape.gradient(losses["g_loss"], self.gen_G.trainable_variables)
+        grads_G = tape.gradient(metrics["g_loss"], self.gen_G.trainable_variables)
         self.gen_G_optimizer.apply_gradients(
             zip(grads_G, self.gen_G.trainable_variables)
         )
 
-        grads_F = tape.gradient(losses["f_loss"], self.gen_F.trainable_variables)
+        grads_F = tape.gradient(metrics["f_loss"], self.gen_F.trainable_variables)
         self.gen_F_optimizer.apply_gradients(
             zip(grads_F, self.gen_F.trainable_variables)
         )
 
         # Gets the gradients for the whole network and optimizes it
-        grads_network = tape.gradient(losses["network_loss"], self.trainable_variables)
+        grads_network = tape.gradient(metrics["network_loss"], self.trainable_variables)
         self.optimizer.apply_gradients(
             zip(grads_network, self.trainable_variables))
 
-        return losses
+        return metrics
     
     def test_step(self, batch_data):
         # x is LR and y is SR
         real_x, real_y = batch_data
 
-        # Compute losses
-        losses = self.get_losses(real_x, real_y)
+        # Compute metrics
+        metrics = self.get_metrics(real_x, real_y)
 
-        return losses
+        return metrics
     
     def evaluate_test_datasets(self, path, lr_dataset, sr_dataset):
         plot_test_dataset(path, "LR", self.gen_G, lr_dataset)
@@ -151,12 +154,13 @@ def main():
     model_checkpoint_callback = ModelCheckpoint(
         filepath= "./checkpoints/didnet_checkpoints.{epoch:03d}", save_weights_only=True
     )
+    metrics = MetricsCallback(path="./results")
 
     # Trains
     history = didnet.fit(
         x=tf.data.Dataset.zip((train_lr, train_hr)),
-        epochs=100,
-        callbacks=[model_checkpoint_callback],
+        epochs=2,
+        callbacks=[model_checkpoint_callback, metrics],
         validation_data=tf.data.Dataset.zip((validation_lr, validation_hr))
     )
 
