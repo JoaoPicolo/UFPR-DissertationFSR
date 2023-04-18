@@ -1,4 +1,3 @@
-import tensorflow as tf
 from keras import Input, Model
 from keras.layers import Conv2D, ReLU, Add
 

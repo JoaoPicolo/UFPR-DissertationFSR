@@ -10,15 +10,9 @@ from generator import get_generator
 from discriminator import get_discriminator
 
 sys.path.append("..")
+from shared.utils import get_parser
 from shared.plots import plot_loss_curve, plot_test_dataset
 from shared.data import resize_image, get_dataset_split, manipulate_dataset
-
-def get_parser():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-p", "--path", type=str, help="Path to the images directory")
-    args = parser.parse_args()
-
-    return args
 
 class SPGAN(Model):
     def __init__(self, generator, discriminator):
