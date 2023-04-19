@@ -3,7 +3,7 @@ from keras.callbacks import Callback
 
 from shared.plots import plot_metric_by_epoch
 
-class MetricsCallback(Callback):
+class MetricsPlotCallback(Callback):
     def __init__(self, path):
         super().__init__()
         self.path = path

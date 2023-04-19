@@ -1,19 +1,60 @@
 import sys
 
+import numpy as np
 import tensorflow as tf
 from keras import Model
 from keras.optimizers import Adam
-from keras.callbacks import ModelCheckpoint, EarlyStopping
+from keras.callbacks import Callback, ModelCheckpoint, EarlyStopping
 
 from facenet import get_embeddings
 from generators import get_model_G, get_model_F
 from utils import charbonnier_loss, mae_loss, mse_from_embedding
 
 sys.path.append("..")
-from shared.metrics import MetricsCallback
+from shared.metrics import MetricsPlotCallback
 from shared.utils import get_parser
-from shared.plots import plot_loss_curve, plot_test_dataset
+from shared.plots import plot_metric_by_epoch, plot_test_dataset
 from shared.data import get_dataset_split, manipulate_dataset
+
+class NetworkMetricsCallback(Callback):
+    def __init__(self, path):
+        super().__init__()
+        self.path = path
+        self.f_loss_train, self.f_loss_val = [], []
+        self.g_loss_train, self.g_loss_val = [], []
+        self.net_loss_train, self.net_loss_val = [], []
+
+    # Store the metric values in each epoch
+    def on_epoch_begin(self, epoch, logs=None):
+        self.f_loss_train_aux, self.f_loss_val_aux = [], []
+        self.g_loss_train_aux, self.g_loss_val_aux = [], []
+        self.net_loss_train_aux, self.net_loss_val_aux = [], []
+
+    def on_train_batch_end(self, batch, logs=None):
+        self.f_loss_train_aux.append(logs["f_loss"])
+        self.g_loss_train_aux.append(logs["g_loss"])
+        self.net_loss_train_aux.append(logs["network_loss"])
+
+
+    def on_test_batch_end(self, batch, logs=None):
+        self.f_loss_val_aux.append(logs["f_loss"])
+        self.g_loss_val_aux.append(logs["g_loss"])
+        self.net_loss_val_aux.append(logs["network_loss"])
+
+    def on_epoch_end(self, epoch, logs=None):
+        self.f_loss_train.append(np.mean(self.f_loss_train_aux))
+        self.f_loss_val.append(np.mean(self.f_loss_val_aux))
+        self.g_loss_train.append(np.mean(self.g_loss_train_aux))
+        self.g_loss_val.append(np.mean(self.g_loss_val_aux))
+        self.net_loss_train.append(np.mean(self.net_loss_train_aux))
+        self.net_loss_val.append(np.mean(self.net_loss_val_aux))
+
+
+    def on_train_end(self, logs=None):
+        plot_metric_by_epoch(self.path, "F Loss", self.f_loss_train, self.f_loss_val)
+        plot_metric_by_epoch(self.path, "G Loss", self.g_loss_train, self.g_loss_val)
+        plot_metric_by_epoch(self.path, "Network Loss", self.net_loss_train, self.net_loss_val)
+
 
 
 # Reference: https://keras.io/examples/generative/cyclegan/#build-the-cyclegan-model
@@ -154,20 +195,21 @@ def main():
     model_checkpoint_callback = ModelCheckpoint(
         filepath= "./checkpoints/didnet_checkpoints.{epoch:03d}", save_weights_only=True
     )
-    metrics = MetricsCallback(path="./results")
+    metrics = MetricsPlotCallback(path="./results")
+    net_metrics = NetworkMetricsCallback(path="./results")
 
     # Trains
-    history = didnet.fit(
+    didnet.fit(
         x=tf.data.Dataset.zip((train_lr, train_hr)),
-        epochs=2,
-        callbacks=[model_checkpoint_callback, metrics],
+        epochs=100,
+        callbacks=[model_checkpoint_callback, metrics, net_metrics],
         validation_data=tf.data.Dataset.zip((validation_lr, validation_hr))
     )
 
     # Plot networks curves
-    plot_loss_curve("./results", history, "g_loss")
-    plot_loss_curve("./results", history, "f_loss")
-    plot_loss_curve("./results", history, "network_loss")
+    # plot_loss_curve("./results", history, "g_loss")
+    # plot_loss_curve("./results", history, "f_loss")
+    # plot_loss_curve("./results", history, "network_loss")
 
     # Plot the test datasets
     didnet.evaluate_test_datasets("./results", test_lr, test_hr)
