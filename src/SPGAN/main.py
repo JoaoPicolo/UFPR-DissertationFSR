@@ -1,18 +1,52 @@
 import sys
-import argparse
 
+import numpy as np
 import tensorflow as tf
 from keras import Model
 from keras.optimizers import Adam
-from keras.callbacks import ModelCheckpoint
+from keras.callbacks import Callback, ModelCheckpoint, EarlyStopping
 
 from generator import get_generator
 from discriminator import get_discriminator
 
 sys.path.append("..")
+from shared.metrics import MetricsPlotCallback
 from shared.utils import get_parser
-from shared.plots import plot_loss_curve, plot_test_dataset
+from shared.plots import plot_metric_by_epoch, plot_test_dataset
 from shared.data import resize_image, get_dataset_split, manipulate_dataset
+
+class NetworkMetricsCallback(Callback):
+    def __init__(self, path):
+        super().__init__()
+        self.path = path
+        self.d_loss_train, self.d_loss_val = [], []
+        self.g_loss_train, self.g_loss_val = [], []
+
+    # Store the metric values in each epoch
+    def on_epoch_begin(self, epoch, logs=None):
+        self.d_loss_train_aux, self.d_loss_val_aux = [], []
+        self.g_loss_train_aux, self.g_loss_val_aux = [], []
+
+    def on_train_batch_end(self, batch, logs=None):
+        self.d_loss_train_aux.append(logs["d_loss"])
+        self.g_loss_train_aux.append(logs["g_loss"])
+
+
+    def on_test_batch_end(self, batch, logs=None):
+        self.d_loss_val_aux.append(logs["d_loss"])
+        self.g_loss_val_aux.append(logs["g_loss"])
+
+    def on_epoch_end(self, epoch, logs=None):
+        self.d_loss_train.append(np.mean(self.d_loss_train_aux))
+        self.d_loss_val.append(np.mean(self.d_loss_val_aux))
+        self.g_loss_train.append(np.mean(self.g_loss_train_aux))
+        self.g_loss_val.append(np.mean(self.g_loss_val_aux))
+
+
+    def on_train_end(self, logs=None):
+        plot_metric_by_epoch(self.path, "D Loss", self.d_loss_train, self.d_loss_val)
+        plot_metric_by_epoch(self.path, "G Loss", self.g_loss_train, self.g_loss_val)
+
 
 class SPGAN(Model):
     def __init__(self, generator, discriminator):
@@ -50,7 +84,12 @@ class SPGAN(Model):
         disc_loss = -tf.reduce_sum(tf.math.minimum(0.0, (d_sp - pw_loss)))
         gen_loss = tf.reduce_sum(tf.multiply(d_sp, self.get_scalar(d_sp)))
 
-        return { "g_loss": gen_loss, "d_loss": disc_loss }
+        # Computes other metrics
+        psnr = tf.image.psnr(hr_image, sr_image, max_val=255)
+        ssim = tf.image.ssim(hr_image, sr_image, max_val=255)
+        cs = tf.keras.losses.cosine_similarity(hr_image, sr_image)
+
+        return { "g_loss": gen_loss, "d_loss": disc_loss, "psnr": psnr, "ssim": ssim, "cs": cs }
 
     def train_step(self, batch_data):
         # x is LR and y is HR
@@ -90,7 +129,7 @@ def main():
     # Loads the dataset and splits
     lr_shape = (54, 44, 3)
     hr_shape = (216, 176, 6)
-    train, validation, test = get_dataset_split(args.path, (hr_shape[0], hr_shape[1]), 0.6, 0.2, 0.2)
+    train, validation, test = get_dataset_split(args.path, (hr_shape[0], hr_shape[1]), 0.8, 0.1, 0.1)
     train_hr, validation_hr, test_hr = manipulate_dataset(train, validation, test)
     train_lr, validation_lr, test_lr = manipulate_dataset(train, validation, test, resize=True, resize_shape=(lr_shape[0], lr_shape[1]))
 
@@ -108,21 +147,24 @@ def main():
     )
 
     # Callbacks
+    early_stop = EarlyStopping(monitor="g_loss", patience=10, mode="min")
     model_checkpoint_callback = ModelCheckpoint(
         filepath= "./checkpoints/spgan_checkpoints.{epoch:03d}", save_weights_only=True
     )
+    metrics = MetricsPlotCallback(path="./results")
+    net_metrics = NetworkMetricsCallback(path="./results")
 
     # Trains
-    history = spgan.fit(
+    spgan.fit(
         x=tf.data.Dataset.zip((train_lr, train_hr)),
-        epochs=10,
-        callbacks=[model_checkpoint_callback],
+        epochs=50,
+        callbacks=[model_checkpoint_callback, metrics, net_metrics],
         validation_data=tf.data.Dataset.zip((validation_lr, validation_hr))
     )
 
     # Plot networks curves
-    plot_loss_curve("./results", history, "g_loss")
-    plot_loss_curve("./results", history, "d_loss")
+    # plot_loss_curve("./results", history, "g_loss")
+    # plot_loss_curve("./results", history, "d_loss")
 
     # Plot the test datasets
     spgan.evaluate_test_datasets("./results", test_lr)

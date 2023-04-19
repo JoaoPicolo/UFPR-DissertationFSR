@@ -28,7 +28,7 @@ def get_discriminator(input_shape):
     x = convolution_block(x, 64)
 
     # TODO: Test with one channel
-    outputs = Conv2D(3, kernel_size=1, strides=1, padding="same")(x)
+    outputs = Conv2D(1, kernel_size=1, strides=1, padding="same")(x)
 
     # Defines the model
     model = Model(inputs, outputs, name="Discriminator")
