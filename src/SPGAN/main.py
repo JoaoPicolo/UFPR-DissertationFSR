@@ -1,6 +1,9 @@
 import sys
 
 import numpy as np
+import matplotlib.pyplot as plt
+from keras.utils import array_to_img
+
 import tensorflow as tf
 from keras import Model
 from keras.optimizers import Adam
@@ -14,6 +17,35 @@ from shared.metrics import MetricsPlotCallback
 from shared.utils import get_parser
 from shared.plots import plot_metric_by_epoch, plot_test_dataset
 from shared.data import resize_image, get_dataset_split, manipulate_dataset
+
+
+class EpochPlotCallback(Callback):
+    def __init__(self, test_set):
+        super().__init__()
+        self.test_set = test_set 
+
+    def on_epoch_end(self, epoch, logs=None):
+        _, ax = plt.subplots(4, 2, figsize=(12, 12))
+        for i, img in enumerate(self.test_set.take(4)):
+            prediction = self.model.generator(img)
+
+            img = np.array(img.numpy())
+            img = img[0, :, :, :]
+            img = array_to_img(img)
+
+            prediction = np.array(prediction.numpy())
+            prediction = prediction[0, :, :, :]
+            prediction = array_to_img(prediction)
+
+            ax[i, 0].imshow(img)
+            ax[i, 1].imshow(prediction)
+            ax[i, 0].set_title("Input image")
+            ax[i, 1].set_title("Translated image")
+            ax[i, 0].axis("off")
+            ax[i, 1].axis("off")
+
+            plt.savefig(f"./results/results_{epoch}.png")
+
 
 class NetworkMetricsCallback(Callback):
     def __init__(self, path):
@@ -153,12 +185,13 @@ def main():
     )
     metrics = MetricsPlotCallback(path="./results")
     net_metrics = NetworkMetricsCallback(path="./results")
+    epoch_save = EpochPlotCallback(test_set=validation_lr)
 
     # Trains
     spgan.fit(
         x=tf.data.Dataset.zip((train_lr, train_hr)),
-        epochs=50,
-        callbacks=[model_checkpoint_callback, metrics, net_metrics],
+        epochs=5,
+        callbacks=[model_checkpoint_callback, metrics, net_metrics, epoch_save],
         validation_data=tf.data.Dataset.zip((validation_lr, validation_hr))
     )
 
