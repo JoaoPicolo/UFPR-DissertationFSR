@@ -64,11 +64,12 @@ class DIDnet(Model):
         self.gen_G = generator_G
         self.gen_F = generator_F
 
-    def compile(self, optimizer, gen_G_optimizer, gen_F_optimizer,
-        cycle_loss_fn, identity_loss_fn, test_size
+    def compile(self, optimizer, loss, gen_G_optimizer, gen_F_optimizer,
+        cycle_loss_fn, identity_loss_fn, test_size,
     ):
         super().compile()
         self.optimizer = optimizer
+        self.loss = loss
         self.gen_G_optimizer = gen_G_optimizer
         self.gen_F_optimizer = gen_F_optimizer
         self.cycle_loss_fn = cycle_loss_fn
@@ -92,8 +93,8 @@ class DIDnet(Model):
         cycle_loss_F = self.cycle_loss_fn(real_y, cycled_y) / self.test_size
 
         # Get face embeddings from Facenet
-        id_embeddings_G = get_embeddings(fake_y, cycled_y)
-        id_embeddings_F = get_embeddings(fake_x, cycled_x)
+        id_embeddings_G = get_embeddings(fake_x, cycled_x)
+        id_embeddings_F = get_embeddings(fake_y, cycled_y)
 
         # TODO: Divide by N (check if it improves)
         id_loss_G = self.identity_loss_fn(
@@ -183,6 +184,7 @@ def main():
     # Compile the model
     didnet.compile(
         optimizer=Adam(learning_rate=1e-4),
+        loss="network_loss",
         gen_G_optimizer=Adam(learning_rate=1e-4),
         gen_F_optimizer=Adam(learning_rate=1e-4),
         cycle_loss_fn=charbonnier_loss,
@@ -205,11 +207,6 @@ def main():
         callbacks=[model_checkpoint_callback, metrics, net_metrics],
         validation_data=tf.data.Dataset.zip((validation_lr, validation_hr))
     )
-
-    # Plot networks curves
-    # plot_loss_curve("./results", history, "g_loss")
-    # plot_loss_curve("./results", history, "f_loss")
-    # plot_loss_curve("./results", history, "network_loss")
 
     # Plot the test datasets
     didnet.evaluate_test_datasets("./results", test_lr, test_hr)
