@@ -1,23 +1,11 @@
 import sys
-import argparse
-
-from keras import Model
 
 from face_recognition import get_face_recognition
 
 sys.path.append("..")
 from shared.utils import get_parser
-from shared.plots import get_dataset_split, manipulate_dataset
+from shared.data import get_dataset_split, manipulate_dataset
 
-def get_parser():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-p", "--path", type=str, help="Path to the images directory")
-    args = parser.parse_args()
-
-    return args
-
-def custom_loss_function(y_true, y_pred):
-    pass
 
 # Trains the face recognition model
 def main():
@@ -32,7 +20,7 @@ def main():
 
     # Get models
     model = get_face_recognition(input_shape=hr_shape)
-
+    print(model.summary())
 
 
 if __name__ == "__main__":

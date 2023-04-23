@@ -86,8 +86,9 @@ class SPGAN(Model):
         self.generator = generator
         self.discriminator = discriminator
 
-    def compile(self, generator_optimizer, discriminator_optimizer):
+    def compile(self, generator_optimizer, discriminator_optimizer, loss):
         super().compile()
+        self.loss = loss
         self.generator_optimizer = generator_optimizer
         self.discriminator_optimizer = discriminator_optimizer
 
@@ -176,6 +177,7 @@ def main():
     spgan.compile(
         generator_optimizer=Adam(learning_rate=1e-4, beta_1=0.5, beta_2=0.999),
         discriminator_optimizer=Adam(learning_rate=1e-4, beta_1=0.5, beta_2=0.999),
+        loss="g_loss"
     )
 
     # Callbacks
@@ -194,10 +196,6 @@ def main():
         callbacks=[model_checkpoint_callback, metrics, net_metrics, epoch_save],
         validation_data=tf.data.Dataset.zip((validation_lr, validation_hr))
     )
-
-    # Plot networks curves
-    # plot_loss_curve("./results", history, "g_loss")
-    # plot_loss_curve("./results", history, "d_loss")
 
     # Plot the test datasets
     spgan.evaluate_test_datasets("./results", test_lr)
