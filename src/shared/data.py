@@ -31,8 +31,13 @@ def manipulate_dataset(
 
     return train_new, validation_new, test_new
 
+def apply_augmentation(image):
+    image = tf.image.random_flip_left_right(image)
+    image = tf.image.random_contrast(image, lower=0.0, upper=1.0)
+    return image
 
-def get_dataset_split(path, image_shape, train_split=0.7, evaluation_split=0.2, test_split=0.1):
+
+def get_dataset_split(path, image_shape, train_split=0.7, evaluation_split=0.2, test_split=0.1, augment_data=False, augment_factor=10):
     dataset = image_dataset_from_directory(
         directory=path, seed=123, image_size=image_shape, batch_size=None)
     dataset_size = len(dataset)
@@ -44,5 +49,9 @@ def get_dataset_split(path, image_shape, train_split=0.7, evaluation_split=0.2, 
     train = dataset.take(train_size)
     validation = dataset.skip(train_size).take(eval_size)
     test = dataset.skip(train_size+eval_size).take(test_size)
+
+    if augment_data:
+        augmented = train.map(lambda x, y: (apply_augmentation(x), y)).repeat(augment_factor)
+        train = train.concatenate(augmented)
 
     return train, validation, test
