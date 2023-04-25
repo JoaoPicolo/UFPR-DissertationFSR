@@ -2,6 +2,7 @@ import math
 
 import tensorflow as tf
 from keras.utils import image_dataset_from_directory
+from keras.layers import Normalization
 
 def resize_image(image, output_shape, resize_method):
     resized = tf.image.resize(
@@ -55,3 +56,10 @@ def get_dataset_split(path, image_shape, train_split=0.7, evaluation_split=0.2, 
         train = train.concatenate(augmented)
 
     return train, validation, test
+
+
+def get_normalization_layer(dataset):
+    normalizer = Normalization()
+    dataset_x = dataset.map(lambda x, _: x)
+    normalizer.adapt(dataset_x)
+    return normalizer

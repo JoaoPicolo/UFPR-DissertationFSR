@@ -14,7 +14,7 @@ sys.path.append("..")
 from shared.metrics import MetricsPlotCallback
 from shared.utils import get_parser
 from shared.plots import plot_metric_by_epoch, plot_test_dataset
-from shared.data import get_dataset_split, manipulate_dataset
+from shared.data import get_dataset_split, manipulate_dataset, get_normalization_layer
 
 class NetworkMetricsCallback(Callback):
     def __init__(self, path):
@@ -170,13 +170,14 @@ def main():
     # Loads the dataset and splits
     lr_shape = (90, 65, 3)
     hr_shape = (360, 260, 3)
-    train, validation, test = get_dataset_split(args.path, (hr_shape[0], hr_shape[1]), 0.88, 0.02, 0.1, True)
+    train, validation, test = get_dataset_split(args.path, (hr_shape[0], hr_shape[1]), 0.88, 0.02, 0.1)
     train_hr, validation_hr, test_hr = manipulate_dataset(train, validation, test)
     train_lr, validation_lr, test_lr = manipulate_dataset(train, validation, test, resize=True, resize_shape=(lr_shape[0], lr_shape[1]))
 
     # Get models
-    generator_g = get_model_G(input_shape=lr_shape)
-    generator_f = get_model_F(input_shape=hr_shape)
+    norm_layer_train = get_normalization_layer(train)
+    generator_g = get_model_G(input_shape=lr_shape, norm_layer=norm_layer_train)
+    generator_f = get_model_F(input_shape=hr_shape, norm_layer=norm_layer_train)
 
     # Create cycle gan model
     didnet = DIDnet(generator_g, generator_f)
@@ -203,7 +204,7 @@ def main():
     # Trains
     didnet.fit(
         x=tf.data.Dataset.zip((train_lr, train_hr)),
-        epochs=100,
+        epochs=1,
         callbacks=[model_checkpoint_callback, metrics, net_metrics],
         validation_data=tf.data.Dataset.zip((validation_lr, validation_hr))
     )
