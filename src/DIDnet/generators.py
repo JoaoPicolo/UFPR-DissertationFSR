@@ -68,11 +68,16 @@ def upsampling_block(inputs):
     return x
 
 
-def get_model_G(input_shape, norm_layer):
+def get_model_G(input_shape, norm_layer=None):
     inputs = Input(shape=input_shape)
-    outputs = norm_layer(inputs)
-    outputs = upsampling_block(outputs)
-    outputs = upsampling_block(outputs)
+
+    if norm_layer:
+        x = norm_layer(inputs)
+    else:
+        x = inputs
+
+    x = upsampling_block(x)
+    outputs = upsampling_block(x)
     model = Model(inputs, outputs, name="Generator_G")
 
     return model
@@ -91,9 +96,14 @@ def downsampling_block(inputs):
 
 def get_model_F(input_shape, norm_layer):
     inputs = Input(shape=input_shape)
-    outputs = norm_layer(inputs)
-    outputs = downsampling_block(outputs)
-    outputs = downsampling_block(outputs)
+
+    if norm_layer:
+        x = norm_layer(inputs)
+    else:
+        x = inputs
+
+    x = downsampling_block(x)
+    outputs = downsampling_block(x)
     model = Model(inputs, outputs, name="Generator_F")
 
     return model

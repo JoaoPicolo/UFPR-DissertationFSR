@@ -176,8 +176,8 @@ def main():
 
     # Get models
     norm_layer_train = get_normalization_layer(train)
-    generator_g = get_model_G(input_shape=lr_shape, norm_layer=norm_layer_train)
-    generator_f = get_model_F(input_shape=hr_shape, norm_layer=norm_layer_train)
+    generator_g = get_model_G(input_shape=lr_shape)
+    generator_f = get_model_F(input_shape=hr_shape)
 
     # Create cycle gan model
     didnet = DIDnet(generator_g, generator_f)
