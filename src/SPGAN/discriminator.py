@@ -17,11 +17,16 @@ def convolution_block(inputs, channels):
 
     return outputs
 
-def get_discriminator(input_shape):
+def get_discriminator(input_shape, norm_layer=None):
     inputs = Input(shape=input_shape)
 
+    if norm_layer:
+        x = norm_layer(inputs)
+    else:
+        x = inputs
+
     # Builds the network
-    x = Conv2D(8, kernel_size=3, strides=1, padding="same")(inputs)
+    x = Conv2D(8, kernel_size=3, strides=1, padding="same")(x)
     x = convolution_block(x, 8)
     x = convolution_block(x, 16)
     x = convolution_block(x, 32)

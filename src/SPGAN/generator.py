@@ -39,8 +39,13 @@ def upscale_block(inputs, output_dim, scale, initializer, method="ups"):
     return x
 
 
-def get_generator(input_shape):
+def get_generator(input_shape, norm_layer=None):
     inputs = Input(shape=input_shape)
+
+    if norm_layer:
+        x = norm_layer(inputs)
+    else:
+        x = inputs
 
     # Variables
     output_dim = 3
@@ -55,7 +60,7 @@ def get_generator(input_shape):
 
     # Defines the network
     f_m1 = Conv2D(G0_rdb_output_dim, kernel_size, padding="same",
-                  kernel_initializer=initializer)(inputs)
+                  kernel_initializer=initializer)(x)
     f_0 = Conv2D(G0_rdb_output_dim, kernel_size, padding="same",
                  kernel_initializer=initializer)(f_m1)
     fd = residual_dense_blocks(f_0, C_layers_in_rdb, D_num_rdb,

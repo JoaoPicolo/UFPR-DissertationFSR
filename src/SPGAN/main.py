@@ -16,7 +16,7 @@ sys.path.append("..")
 from shared.metrics import MetricsPlotCallback
 from shared.utils import get_parser
 from shared.plots import plot_metric_by_epoch, plot_test_dataset
-from shared.data import resize_image, get_dataset_split, manipulate_dataset
+from shared.data import resize_image, get_dataset_split, manipulate_dataset, get_normalization_layer
 
 
 class EpochPlotCallback(Callback):
@@ -167,8 +167,9 @@ def main():
     train_lr, validation_lr, test_lr = manipulate_dataset(train, validation, test, resize=True, resize_shape=(lr_shape[0], lr_shape[1]))
 
     # Get models
-    generator = get_generator(input_shape=lr_shape)
-    discriminator = get_discriminator(input_shape=hr_shape)
+    norm_layer_train = get_normalization_layer(train)
+    generator = get_generator(input_shape=lr_shape, norm_layer=norm_layer_train)
+    discriminator = get_discriminator(input_shape=hr_shape, norm_layer=norm_layer_train)
    
     # Create gan model
     spgan = SPGAN(generator, discriminator)
@@ -192,8 +193,8 @@ def main():
     # Trains
     spgan.fit(
         x=tf.data.Dataset.zip((train_lr, train_hr)),
-        epochs=5,
-        callbacks=[model_checkpoint_callback, metrics, net_metrics, epoch_save],
+        epochs=100,
+        callbacks=[model_checkpoint_callback, metrics, net_metrics, epoch_save, early_stop],
         validation_data=tf.data.Dataset.zip((validation_lr, validation_hr))
     )
 
