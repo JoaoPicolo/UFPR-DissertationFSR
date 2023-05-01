@@ -1,5 +1,7 @@
 import sys
 
+from keras.optimizers import Adam
+
 from face_recognition import get_face_recognition
 
 sys.path.append("..")
@@ -20,7 +22,10 @@ def main():
 
     # Get models
     model = get_face_recognition(input_shape=hr_shape)
-    print(model.summary())
+    
+    model.compile(
+        optimizer=Adam(learning_rate=1e-4),
+    )
 
 
 if __name__ == "__main__":
