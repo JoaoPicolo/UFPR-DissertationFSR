@@ -28,6 +28,9 @@ class EpochPlotCallback(Callback):
         _, ax = plt.subplots(4, 2, figsize=(12, 12))
         for i, img in enumerate(self.test_set.take(4)):
             prediction = self.model.generator(img)
+            mean = self.model.generator.layers[1].get_weights()[0]
+            stddev = self.model.generator.layers[1].get_weights()[1]
+            prediction = prediction * stddev + mean
 
             img = np.array(img.numpy())
             img = img[0, :, :, :]
@@ -107,8 +110,8 @@ class SPGAN(Model):
         # Gets discriminative matrix
         concat_real = tf.concat([upsampled_lr, hr_image], axis=-1)
         concat_fake = tf.concat([upsampled_lr, sr_image], axis=-1)
-        disc_real = self.discriminator(concat_real, training=isTraining)
-        disc_fake = self.discriminator(concat_fake, training=isTraining)
+        disc_real = self.discriminator(hr_image, training=isTraining)
+        disc_fake = self.discriminator(sr_image, training=isTraining)
         
         d_sp = tf.subtract(disc_real, disc_fake)
 
@@ -161,7 +164,7 @@ def main():
 
     # Loads the dataset and splits
     lr_shape = (54, 44, 3)
-    hr_shape = (216, 176, 6)
+    hr_shape = (216, 176, 3)
     train, validation, test = get_dataset_split(args.path, (hr_shape[0], hr_shape[1]), 0.8, 0.1, 0.1)
     train_hr, validation_hr, test_hr = manipulate_dataset(train, validation, test)
     train_lr, validation_lr, test_lr = manipulate_dataset(train, validation, test, resize=True, resize_shape=(lr_shape[0], lr_shape[1]))
