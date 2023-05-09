@@ -4,57 +4,17 @@ import numpy as np
 import tensorflow as tf
 from keras import Model
 from keras.optimizers import Adam
-from keras.callbacks import Callback, ModelCheckpoint, EarlyStopping
+from keras.callbacks import ModelCheckpoint, EarlyStopping
 
 from facenet import get_embeddings
 from generators import get_model_G, get_model_F
 from utils import charbonnier_loss, mae_loss, mse_from_embedding
 
 sys.path.append("..")
+from shared.metrics import NetworkMetricsPlotCallback
 from shared.utils import get_parser
-from shared.plots import plot_metric_by_epoch, plot_test_dataset
+from shared.plots import plot_test_dataset
 from shared.data import get_dataset_split, manipulate_dataset, get_normalization_layer
-
-class NetworkMetricsPlotCallback(Callback):
-    def __init__(self, path, metrics):
-        super().__init__()
-        self.path = path
-        self.metrics = metrics
-
-        self.data = {}
-        self.data_aux = {}
-        for key in self.metrics:
-            self.data[key + "_train"] = []
-            self.data[key + "_val"] = []
-
-
-    # Store the metric values in each epoch
-    def on_epoch_begin(self, epoch, logs=None):
-        for key in self.metrics:
-            self.data_aux[key + "_train"] = []
-            self.data_aux[key + "_val"] = []
-
-
-    def on_train_batch_end(self, batch, logs=None):
-        for key in self.metrics:
-            self.data_aux[key + "_train"].append(logs[key])
-
-
-    def on_test_batch_end(self, batch, logs=None):
-        for key in self.metrics:
-            self.data_aux[key + "_val"].append(logs[key])
-
-
-    def on_epoch_end(self, epoch, logs=None):
-        for key in self.metrics:
-            self.data[key + "_train"].append(np.mean(self.data_aux[key + "_train"]))
-            self.data[key + "_val"].append(np.mean(self.data_aux[key + "_val"]))
-
-
-    def on_train_end(self, logs=None):
-        for key in self.metrics:
-            plot_metric_by_epoch(self.path, "Loss " + key, self.data[key + "_train"], self.data[key + "_val"])
-
 
 
 # Reference: https://keras.io/examples/generative/cyclegan/#build-the-cyclegan-model
@@ -168,7 +128,7 @@ def main():
     # Loads the dataset and splits
     lr_shape = (90, 65, 3)
     hr_shape = (360, 260, 3)
-    train, validation, test = get_dataset_split(args.path, (hr_shape[0], hr_shape[1]), 0.6, 0.2, 0.2)
+    train, validation, test = get_dataset_split(args.path, (hr_shape[0], hr_shape[1]), 0.88, 0.02, 0.1)
     train_hr, validation_hr, test_hr = manipulate_dataset(train, validation, test)
     train_lr, validation_lr, test_lr = manipulate_dataset(train, validation, test, resize=True, resize_shape=(lr_shape[0], lr_shape[1]))
 
@@ -202,7 +162,7 @@ def main():
     # Trains
     didnet.fit(
         x=tf.data.Dataset.zip((train_lr, train_hr)),
-        epochs=10,
+        epochs=100,
         callbacks=[model_checkpoint_callback, net_metrics],
         validation_data=tf.data.Dataset.zip((validation_lr, validation_hr))
     )

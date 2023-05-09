@@ -13,7 +13,7 @@ from generator import get_generator
 from discriminator import get_discriminator
 
 sys.path.append("..")
-from shared.metrics import MetricsPlotCallback
+from shared.metrics import NetworkMetricsPlotCallback
 from shared.utils import get_parser
 from shared.plots import plot_metric_by_epoch, plot_test_dataset
 from shared.data import resize_image, get_dataset_split, manipulate_dataset, get_normalization_layer
@@ -165,7 +165,7 @@ def main():
     # Loads the dataset and splits
     lr_shape = (54, 44, 3)
     hr_shape = (216, 176, 3)
-    train, validation, test = get_dataset_split(args.path, (hr_shape[0], hr_shape[1]), 0.8, 0.1, 0.1)
+    train, validation, test = get_dataset_split(args.path, (hr_shape[0], hr_shape[1]), 0.88, 0.02, 0.1)
     train_hr, validation_hr, test_hr = manipulate_dataset(train, validation, test)
     train_lr, validation_lr, test_lr = manipulate_dataset(train, validation, test, resize=True, resize_shape=(lr_shape[0], lr_shape[1]))
 
@@ -189,15 +189,15 @@ def main():
     model_checkpoint_callback = ModelCheckpoint(
         filepath= "./checkpoints/spgan_checkpoints.{epoch:03d}", save_weights_only=True
     )
-    metrics = MetricsPlotCallback(path="./results")
-    net_metrics = NetworkMetricsCallback(path="./results")
+    net_metrics = NetworkMetricsPlotCallback(path="./results", metrics=[
+        "g_loss", "d_loss", "psnr", "ssim", "cs"])
     epoch_save = EpochPlotCallback(test_set=validation_lr)
 
     # Trains
     spgan.fit(
         x=tf.data.Dataset.zip((train_lr, train_hr)),
         epochs=100,
-        callbacks=[model_checkpoint_callback, metrics, net_metrics, epoch_save, early_stop],
+        callbacks=[model_checkpoint_callback, net_metrics, epoch_save, early_stop],
         validation_data=tf.data.Dataset.zip((validation_lr, validation_hr))
     )
 

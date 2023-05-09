@@ -24,13 +24,16 @@ def plot_loss_curve(path, history, metric_name):
     plt.savefig(f"{path}/loss_curve_{metric_name}.png")
 
 
-def plot_test_dataset(path, type, generator, dataset):
+def plot_test_dataset(path, type, generator, dataset, normalized = False):
     _, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 12))
     for idx, img in enumerate(dataset):
         prediction = generator(img)
-        mean = generator.layers[1].get_weights()[0]
-        stddev = generator.layers[1].get_weights()[1]
-        prediction = prediction * stddev + mean
+
+        if normalized:
+            mean = generator.layers[1].get_weights()[0]
+            stddev = generator.layers[1].get_weights()[1]
+            prediction = prediction * stddev + mean
+
         img = np.array(img.numpy())
         img = img[0, :, :, :]
         img = array_to_img(img)
