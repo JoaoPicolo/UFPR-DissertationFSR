@@ -94,7 +94,7 @@ def downsampling_block(inputs):
     return x
 
 
-def get_model_F(input_shape, norm_layer):
+def get_model_F(input_shape, norm_layer=None):
     inputs = Input(shape=input_shape)
 
     if norm_layer:

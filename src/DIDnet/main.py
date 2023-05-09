@@ -11,49 +11,49 @@ from generators import get_model_G, get_model_F
 from utils import charbonnier_loss, mae_loss, mse_from_embedding
 
 sys.path.append("..")
-from shared.metrics import MetricsPlotCallback
 from shared.utils import get_parser
 from shared.plots import plot_metric_by_epoch, plot_test_dataset
 from shared.data import get_dataset_split, manipulate_dataset, get_normalization_layer
 
-class NetworkMetricsCallback(Callback):
-    def __init__(self, path):
+class NetworkMetricsPlotCallback(Callback):
+    def __init__(self, path, metrics):
         super().__init__()
         self.path = path
-        self.f_loss_train, self.f_loss_val = [], []
-        self.g_loss_train, self.g_loss_val = [], []
-        self.net_loss_train, self.net_loss_val = [], []
+        self.metrics = metrics
+
+        self.data = {}
+        self.data_aux = {}
+        for key in self.metrics:
+            self.data[key + "_train"] = []
+            self.data[key + "_val"] = []
+
 
     # Store the metric values in each epoch
     def on_epoch_begin(self, epoch, logs=None):
-        self.f_loss_train_aux, self.f_loss_val_aux = [], []
-        self.g_loss_train_aux, self.g_loss_val_aux = [], []
-        self.net_loss_train_aux, self.net_loss_val_aux = [], []
+        for key in self.metrics:
+            self.data_aux[key + "_train"] = []
+            self.data_aux[key + "_val"] = []
+
 
     def on_train_batch_end(self, batch, logs=None):
-        self.f_loss_train_aux.append(logs["f_loss"])
-        self.g_loss_train_aux.append(logs["g_loss"])
-        self.net_loss_train_aux.append(logs["network_loss"])
+        for key in self.metrics:
+            self.data_aux[key + "_train"].append(logs[key])
 
 
     def on_test_batch_end(self, batch, logs=None):
-        self.f_loss_val_aux.append(logs["f_loss"])
-        self.g_loss_val_aux.append(logs["g_loss"])
-        self.net_loss_val_aux.append(logs["network_loss"])
+        for key in self.metrics:
+            self.data_aux[key + "_val"].append(logs[key])
+
 
     def on_epoch_end(self, epoch, logs=None):
-        self.f_loss_train.append(np.mean(self.f_loss_train_aux))
-        self.f_loss_val.append(np.mean(self.f_loss_val_aux))
-        self.g_loss_train.append(np.mean(self.g_loss_train_aux))
-        self.g_loss_val.append(np.mean(self.g_loss_val_aux))
-        self.net_loss_train.append(np.mean(self.net_loss_train_aux))
-        self.net_loss_val.append(np.mean(self.net_loss_val_aux))
+        for key in self.metrics:
+            self.data[key + "_train"].append(np.mean(self.data_aux[key + "_train"]))
+            self.data[key + "_val"].append(np.mean(self.data_aux[key + "_val"]))
 
 
     def on_train_end(self, logs=None):
-        plot_metric_by_epoch(self.path, "F Loss", self.f_loss_train, self.f_loss_val)
-        plot_metric_by_epoch(self.path, "G Loss", self.g_loss_train, self.g_loss_val)
-        plot_metric_by_epoch(self.path, "Network Loss", self.net_loss_train, self.net_loss_val)
+        for key in self.metrics:
+            plot_metric_by_epoch(self.path, "Loss " + key, self.data[key + "_train"], self.data[key + "_val"])
 
 
 
@@ -61,20 +61,19 @@ class NetworkMetricsCallback(Callback):
 class DIDnet(Model):
     def __init__(self, generator_G, generator_F):
         super().__init__()
-        self.gen_G = generator_G
-        self.gen_F = generator_F
+        self.gen_G: Model = generator_G
+        self.gen_F: Model = generator_F
 
-    def compile(self, optimizer, loss, gen_G_optimizer, gen_F_optimizer,
-        cycle_loss_fn, identity_loss_fn, test_size,
+    def compile(self, optimizer, gen_G_optimizer, gen_F_optimizer,
+        cycle_loss_fn, identity_loss_fn, train_size,
     ):
         super().compile()
-        self.optimizer = optimizer
-        self.loss = loss
-        self.gen_G_optimizer = gen_G_optimizer
-        self.gen_F_optimizer = gen_F_optimizer
-        self.cycle_loss_fn = cycle_loss_fn
-        self.identity_loss_fn = identity_loss_fn
-        self.test_size = test_size
+        self.optimizer: Adam = optimizer
+        self.gen_G_optimizer: callable = gen_G_optimizer
+        self.gen_F_optimizer: callable = gen_F_optimizer
+        self.cycle_loss_fn: callable = cycle_loss_fn
+        self.identity_loss_fn: callable = identity_loss_fn
+        self.train_size: int = train_size
 
     def get_metrics(self, real_x, real_y, isTraining=False):
         # LR to SR
@@ -88,19 +87,17 @@ class DIDnet(Model):
         cycled_y = self.gen_G(fake_x, training=isTraining)
 
         # Generator cycle loss
-        # TODO: Divide by N (check if it improves)
-        cycle_loss_G = self.cycle_loss_fn(real_x, cycled_x) / self.test_size
-        cycle_loss_F = self.cycle_loss_fn(real_y, cycled_y) / self.test_size
+        cycle_loss_G = self.cycle_loss_fn(real_x, cycled_x) / self.train_size
+        cycle_loss_F = self.cycle_loss_fn(real_y, cycled_y) / self.train_size
 
         # Get face embeddings from Facenet
         id_embeddings_G = get_embeddings(fake_x, cycled_x)
         id_embeddings_F = get_embeddings(fake_y, cycled_y)
 
-        # TODO: Divide by N (check if it improves)
         id_loss_G = self.identity_loss_fn(
-            id_embeddings_G[0], id_embeddings_G[1]) / self.test_size
+            id_embeddings_G[0], id_embeddings_G[1]) / self.train_size
         id_loss_F = self.identity_loss_fn(
-            id_embeddings_F[0], id_embeddings_F[1]) / self.test_size
+            id_embeddings_F[0], id_embeddings_F[1]) / self.train_size
 
         # Total generator loss
         total_loss_G = cycle_loss_G + id_loss_G
@@ -109,9 +106,8 @@ class DIDnet(Model):
         # Network Loss
         loop_loss = cycle_loss_G + cycle_loss_F
         identity_loss = id_loss_G + id_loss_F
-        # TODO: Divide by N (check if it improves)
-        rec_loss = mae_loss(real_y, fake_y) / self.test_size
-        channel_loss = charbonnier_loss(tf.image.rgb_to_yuv(fake_y), tf.image.rgb_to_yuv(real_y)) / self.test_size
+        rec_loss = mae_loss(real_y, fake_y) / self.train_size
+        channel_loss = charbonnier_loss(tf.image.rgb_to_yuv(fake_y), tf.image.rgb_to_yuv(real_y)) / self.train_size
         network_loss = loop_loss + rec_loss + 0.5*identity_loss + 0.5*channel_loss
 
         # Computes other metrics
@@ -119,9 +115,11 @@ class DIDnet(Model):
         ssim = tf.image.ssim(real_y, fake_y, max_val=255)
         cs = tf.keras.losses.cosine_similarity(real_y, fake_y)
 
-        return { 
-            "g_loss": total_loss_G, "f_loss": total_loss_F, "network_loss": network_loss,
-            "psnr": psnr, "ssim": ssim, "cs": cs
+        return {
+            "g_cycle_loss": cycle_loss_G, "f_cycle_loss": cycle_loss_F, "g_id_loss": id_loss_G,
+            "f_id_loss": id_loss_F, "loop_loss": loop_loss, "id_loss": identity_loss, "rec_loss": rec_loss,
+            "channel_loss": channel_loss, "g_loss": total_loss_G, "f_loss": total_loss_F,
+            "network_loss": network_loss, "psnr": psnr, "ssim": ssim, "cs": cs
         }
 
 
@@ -170,12 +168,12 @@ def main():
     # Loads the dataset and splits
     lr_shape = (90, 65, 3)
     hr_shape = (360, 260, 3)
-    train, validation, test = get_dataset_split(args.path, (hr_shape[0], hr_shape[1]), 0.88, 0.02, 0.1)
+    train, validation, test = get_dataset_split(args.path, (hr_shape[0], hr_shape[1]), 0.6, 0.2, 0.2)
     train_hr, validation_hr, test_hr = manipulate_dataset(train, validation, test)
     train_lr, validation_lr, test_lr = manipulate_dataset(train, validation, test, resize=True, resize_shape=(lr_shape[0], lr_shape[1]))
 
     # Get models
-    norm_layer_train = get_normalization_layer(train)
+    # norm_layer_train = get_normalization_layer(train)
     generator_g = get_model_G(input_shape=lr_shape)
     generator_f = get_model_F(input_shape=hr_shape)
 
@@ -185,12 +183,11 @@ def main():
     # Compile the model
     didnet.compile(
         optimizer=Adam(learning_rate=1e-4),
-        loss="network_loss",
         gen_G_optimizer=Adam(learning_rate=1e-4),
         gen_F_optimizer=Adam(learning_rate=1e-4),
         cycle_loss_fn=charbonnier_loss,
         identity_loss_fn=mse_from_embedding,
-        test_size=len(train)
+        train_size=len(train)
     )
 
     # Callbacks
@@ -198,14 +195,15 @@ def main():
     model_checkpoint_callback = ModelCheckpoint(
         filepath= "./checkpoints/didnet_checkpoints.{epoch:03d}", save_weights_only=True
     )
-    metrics = MetricsPlotCallback(path="./results")
-    net_metrics = NetworkMetricsCallback(path="./results")
+    net_metrics = NetworkMetricsPlotCallback(path="./results", metrics=[
+        "g_cycle_loss", "f_cycle_loss", "g_id_loss", "f_id_loss", "loop_loss", "id_loss",
+        "rec_loss", "channel_loss", "g_loss", "f_loss", "network_loss", "psnr", "ssim", "cs"])
 
     # Trains
     didnet.fit(
         x=tf.data.Dataset.zip((train_lr, train_hr)),
-        epochs=1,
-        callbacks=[model_checkpoint_callback, metrics, net_metrics],
+        epochs=10,
+        callbacks=[model_checkpoint_callback, net_metrics],
         validation_data=tf.data.Dataset.zip((validation_lr, validation_hr))
     )
 
