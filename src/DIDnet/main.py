@@ -106,7 +106,7 @@ class DIDnet(Model):
         self.optimizer.apply_gradients(
             zip(grads_network, self.trainable_variables))
 
-        return metrics
+        return metrics["network_loss"]
     
     def test_step(self, batch_data):
         # x is LR and y is SR
@@ -115,11 +115,11 @@ class DIDnet(Model):
         # Compute metrics
         metrics = self.get_metrics(real_x, real_y)
 
-        return metrics
+        return metrics["network_loss"]
     
-    def evaluate_test_datasets(self, path, lr_dataset, sr_dataset):
-        plot_test_dataset(path, "LR", self.gen_G, lr_dataset)
-        plot_test_dataset(path, "HR", self.gen_F, sr_dataset)
+    def evaluate_test_datasets(self, path, lr_dataset, sr_dataset, normalized = False):
+        plot_test_dataset(path, "LR", self.gen_G, lr_dataset, normalized=normalized)
+        plot_test_dataset(path, "HR", self.gen_F, sr_dataset, normalized=normalized)
 
 
 def main():
@@ -133,9 +133,13 @@ def main():
     train_lr, validation_lr, test_lr = manipulate_dataset(train, validation, test, resize=True, resize_shape=(lr_shape[0], lr_shape[1]))
 
     # Get models
-    # norm_layer_train = get_normalization_layer(train)
-    generator_g = get_model_G(input_shape=lr_shape)
-    generator_f = get_model_F(input_shape=hr_shape)
+    norm_layer = None
+    normalize = False
+    if normalize:
+        norm_layer = get_normalization_layer(train)
+
+    generator_g = get_model_G(input_shape=lr_shape, norm_layer=norm_layer)
+    generator_f = get_model_F(input_shape=hr_shape, norm_layer=norm_layer)
 
     # Create cycle gan model
     didnet = DIDnet(generator_g, generator_f)
@@ -155,9 +159,7 @@ def main():
     model_checkpoint_callback = ModelCheckpoint(
         filepath= "./checkpoints/didnet_checkpoints.{epoch:03d}", save_weights_only=True
     )
-    net_metrics = NetworkMetricsPlotCallback(path="./results", metrics=[
-        "g_cycle_loss", "f_cycle_loss", "g_id_loss", "f_id_loss", "loop_loss", "id_loss",
-        "rec_loss", "channel_loss", "g_loss", "f_loss", "network_loss", "psnr", "ssim", "cs"])
+    net_metrics = NetworkMetricsPlotCallback(path="./results", metrics=["network_loss"])
 
     # Trains
     didnet.fit(
@@ -168,7 +170,7 @@ def main():
     )
 
     # Plot the test datasets
-    didnet.evaluate_test_datasets("./results", test_lr, test_hr)
+    didnet.evaluate_test_datasets("./results", test_lr, test_hr, normalized=normalize)
 
 if __name__ == "__main__":
     main()
