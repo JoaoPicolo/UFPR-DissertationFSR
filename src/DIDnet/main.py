@@ -106,7 +106,7 @@ class DIDnet(Model):
         self.optimizer.apply_gradients(
             zip(grads_network, self.trainable_variables))
 
-        return metrics["network_loss"]
+        return { "network_loss": metrics["network_loss"] }
     
     def test_step(self, batch_data):
         # x is LR and y is SR
@@ -115,7 +115,7 @@ class DIDnet(Model):
         # Compute metrics
         metrics = self.get_metrics(real_x, real_y)
 
-        return metrics["network_loss"]
+        return { "network_loss": metrics["network_loss"] }
     
     def evaluate_test_datasets(self, path, lr_dataset, sr_dataset, normalized = False):
         plot_test_dataset(path, "LR", self.gen_G, lr_dataset, normalized=normalized)
