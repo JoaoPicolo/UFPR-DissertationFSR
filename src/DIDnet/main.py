@@ -1,6 +1,5 @@
 import sys
 
-import numpy as np
 import tensorflow as tf
 from keras import Model
 from keras.optimizers import Adam
@@ -17,6 +16,16 @@ from shared.plots import plot_test_dataset
 from shared.data import get_dataset_split, manipulate_dataset, get_normalization_layer
 
 
+def PSNR(y_true, y_pred):
+    return tf.image.psnr(y_true, y_pred, max_val=255)
+
+def SSIM(y_true, y_pred):
+    return tf.image.ssim(y_true, y_pred, max_val=255)
+
+def CS(y_true, y_pred):
+    return tf.keras.losses.cosine_similarity(y_true, y_pred)
+
+
 # Reference: https://keras.io/examples/generative/cyclegan/#build-the-cyclegan-model
 class DIDnet(Model):
     def __init__(self, generator_G, generator_F):
@@ -24,11 +33,10 @@ class DIDnet(Model):
         self.gen_G: Model = generator_G
         self.gen_F: Model = generator_F
 
-    def compile(self, optimizer, gen_G_optimizer, gen_F_optimizer,
-        cycle_loss_fn, identity_loss_fn, train_size,
+    def compile(self, optimizer, metrics, gen_G_optimizer, gen_F_optimizer,
+        cycle_loss_fn, identity_loss_fn, train_size
     ):
-        super().compile()
-        self.optimizer: Adam = optimizer
+        super().compile(optimizer=optimizer, metrics=metrics)
         self.gen_G_optimizer: callable = gen_G_optimizer
         self.gen_F_optimizer: callable = gen_F_optimizer
         self.cycle_loss_fn: callable = cycle_loss_fn
@@ -79,7 +87,7 @@ class DIDnet(Model):
             "g_cycle_loss": cycle_loss_G, "f_cycle_loss": cycle_loss_F, "g_id_loss": id_loss_G,
             "f_id_loss": id_loss_F, "loop_loss": loop_loss, "id_loss": identity_loss, "rec_loss": rec_loss,
             "channel_loss": channel_loss, "g_loss": total_loss_G, "f_loss": total_loss_F,
-            "network_loss": network_loss, "psnr": psnr, "ssim": ssim, "cs": cs
+            "network_loss": network_loss, "psnr": psnr, "ssim": ssim, "cs": cs, "y_pred": fake_y
         }
 
 
@@ -105,6 +113,9 @@ class DIDnet(Model):
         grads_network = tape.gradient(metrics["network_loss"], self.trainable_variables)
         self.optimizer.apply_gradients(
             zip(grads_network, self.trainable_variables))
+        
+        # Updates metrics
+        self.compiled_metrics.update_state(real_y, metrics["y_pred"])
 
         return { "network_loss": metrics["network_loss"] }
     
@@ -114,6 +125,9 @@ class DIDnet(Model):
 
         # Compute metrics
         metrics = self.get_metrics(real_x, real_y)
+
+        # Updates metrics
+        self.compiled_metrics.update_state(real_y, metrics["y_pred"])
 
         return { "network_loss": metrics["network_loss"] }
     
@@ -128,7 +142,7 @@ def main():
     # Loads the dataset and splits
     lr_shape = (90, 65, 3)
     hr_shape = (360, 260, 3)
-    train, validation, test = get_dataset_split(args.path, (hr_shape[0], hr_shape[1]), 0.88, 0.02, 0.1)
+    train, validation, test = get_dataset_split(args.path, (hr_shape[0], hr_shape[1]), 0.6, 0.2, 0.2)
     train_hr, validation_hr, test_hr = manipulate_dataset(train, validation, test)
     train_lr, validation_lr, test_lr = manipulate_dataset(train, validation, test, resize=True, resize_shape=(lr_shape[0], lr_shape[1]))
 
@@ -147,6 +161,7 @@ def main():
     # Compile the model
     didnet.compile(
         optimizer=Adam(learning_rate=1e-4),
+        metrics=[PSNR, SSIM, CS],
         gen_G_optimizer=Adam(learning_rate=1e-4),
         gen_F_optimizer=Adam(learning_rate=1e-4),
         cycle_loss_fn=charbonnier_loss,
@@ -164,7 +179,7 @@ def main():
     # Trains
     didnet.fit(
         x=tf.data.Dataset.zip((train_lr, train_hr)),
-        epochs=100,
+        epochs=2,
         callbacks=[model_checkpoint_callback, net_metrics],
         validation_data=tf.data.Dataset.zip((validation_lr, validation_hr))
     )
