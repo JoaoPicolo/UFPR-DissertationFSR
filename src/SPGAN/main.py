@@ -20,17 +20,20 @@ from shared.data import resize_image, get_dataset_split, manipulate_dataset, get
 
 
 class EpochPlotCallback(Callback):
-    def __init__(self, test_set):
+    def __init__(self, test_set, normalized = False):
         super().__init__()
         self.test_set = test_set 
+        self.normalized = normalized
 
     def on_epoch_end(self, epoch, logs=None):
         _, ax = plt.subplots(4, 2, figsize=(12, 12))
         for i, img in enumerate(self.test_set.take(4)):
             prediction = self.model.generator(img)
-            mean = self.model.generator.layers[1].get_weights()[0]
-            stddev = self.model.generator.layers[1].get_weights()[1]
-            prediction = prediction * stddev + mean
+
+            if self.normalized:
+                mean = self.model.generator.layers[1].get_weights()[0]
+                stddev = self.model.generator.layers[1].get_weights()[1]
+                prediction = prediction * stddev + mean
 
             img = np.array(img.numpy())
             img = img[0, :, :, :]
@@ -49,49 +52,14 @@ class EpochPlotCallback(Callback):
 
             plt.savefig(f"./results/results_{epoch}.png")
 
-
-class NetworkMetricsCallback(Callback):
-    def __init__(self, path):
-        super().__init__()
-        self.path = path
-        self.d_loss_train, self.d_loss_val = [], []
-        self.g_loss_train, self.g_loss_val = [], []
-
-    # Store the metric values in each epoch
-    def on_epoch_begin(self, epoch, logs=None):
-        self.d_loss_train_aux, self.d_loss_val_aux = [], []
-        self.g_loss_train_aux, self.g_loss_val_aux = [], []
-
-    def on_train_batch_end(self, batch, logs=None):
-        self.d_loss_train_aux.append(logs["d_loss"])
-        self.g_loss_train_aux.append(logs["g_loss"])
-
-
-    def on_test_batch_end(self, batch, logs=None):
-        self.d_loss_val_aux.append(logs["d_loss"])
-        self.g_loss_val_aux.append(logs["g_loss"])
-
-    def on_epoch_end(self, epoch, logs=None):
-        self.d_loss_train.append(np.mean(self.d_loss_train_aux))
-        self.d_loss_val.append(np.mean(self.d_loss_val_aux))
-        self.g_loss_train.append(np.mean(self.g_loss_train_aux))
-        self.g_loss_val.append(np.mean(self.g_loss_val_aux))
-
-
-    def on_train_end(self, logs=None):
-        plot_metric_by_epoch(self.path, "D Loss", self.d_loss_train, self.d_loss_val)
-        plot_metric_by_epoch(self.path, "G Loss", self.g_loss_train, self.g_loss_val)
-
-
 class SPGAN(Model):
     def __init__(self, generator, discriminator):
         super().__init__()
         self.generator = generator
         self.discriminator = discriminator
 
-    def compile(self, generator_optimizer, discriminator_optimizer, loss):
+    def compile(self, generator_optimizer, discriminator_optimizer):
         super().compile()
-        self.loss = loss
         self.generator_optimizer = generator_optimizer
         self.discriminator_optimizer = discriminator_optimizer
 
@@ -181,7 +149,6 @@ def main():
     spgan.compile(
         generator_optimizer=Adam(learning_rate=1e-4, beta_1=0.5, beta_2=0.999),
         discriminator_optimizer=Adam(learning_rate=1e-4, beta_1=0.5, beta_2=0.999),
-        loss="g_loss"
     )
 
     # Callbacks

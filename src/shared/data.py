@@ -38,9 +38,9 @@ def apply_augmentation(image):
     return image
 
 
-def get_dataset_split(path, image_shape, train_split=0.7, evaluation_split=0.2, test_split=0.1, augment_data=False, augment_factor=10):
+def get_dataset_split(path, image_shape, train_split=0.7, evaluation_split=0.2, test_split=0.1, augment_data=False, augment_factor=10, batch_size=None):
     dataset = image_dataset_from_directory(
-        directory=path, seed=123, image_size=image_shape, batch_size=None)
+        directory=path, seed=123, image_size=image_shape, batch_size=1)
     dataset_size = len(dataset)
 
     train_size = math.floor(train_split*dataset_size)

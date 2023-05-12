@@ -32,8 +32,6 @@ def get_discriminator(input_shape, norm_layer=None):
     x = convolution_block(x, 32)
     x = convolution_block(x, 64)
 
-    # TODO: Add Dense layer512 as embedding network
-
     # TODO: Test with one channel
     outputs = Conv2D(1, kernel_size=1, strides=1, padding="same")(x)
 
