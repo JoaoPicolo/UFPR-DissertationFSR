@@ -142,7 +142,7 @@ def main():
     # Loads the dataset and splits
     lr_shape = (90, 65, 3)
     hr_shape = (360, 260, 3)
-    train, validation, test = get_dataset_split(args.path, (hr_shape[0], hr_shape[1]), 0.6, 0.2, 0.2)
+    train, validation, test = get_dataset_split(args.path, (hr_shape[0], hr_shape[1]), 0.88, 0.02, 0.1)
     train_hr, validation_hr, test_hr = manipulate_dataset(train, validation, test)
     train_lr, validation_lr, test_lr = manipulate_dataset(train, validation, test, resize=True, resize_shape=(lr_shape[0], lr_shape[1]))
 
@@ -179,7 +179,7 @@ def main():
     # Trains
     didnet.fit(
         x=tf.data.Dataset.zip((train_lr, train_hr)),
-        epochs=2,
+        epochs=100,
         callbacks=[model_checkpoint_callback, net_metrics],
         validation_data=tf.data.Dataset.zip((validation_lr, validation_hr))
     )
