@@ -16,16 +16,6 @@ from shared.plots import plot_test_dataset
 from shared.data import get_dataset_split, manipulate_dataset, get_normalization_layer
 
 
-def PSNR(y_true, y_pred):
-    return tf.image.psnr(y_true, y_pred, max_val=255)
-
-def SSIM(y_true, y_pred):
-    return tf.image.ssim(y_true, y_pred, max_val=255)
-
-def CS(y_true, y_pred):
-    return tf.keras.losses.cosine_similarity(y_true, y_pred)
-
-
 # Reference: https://keras.io/examples/generative/cyclegan/#build-the-cyclegan-model
 class DIDnet(Model):
     def __init__(self, generator_G, generator_F):
@@ -113,11 +103,8 @@ class DIDnet(Model):
         grads_network = tape.gradient(metrics["network_loss"], self.trainable_variables)
         self.optimizer.apply_gradients(
             zip(grads_network, self.trainable_variables))
-        
-        # Updates metrics
-        self.compiled_metrics.update_state(real_y, metrics["y_pred"])
 
-        return { "network_loss": metrics["network_loss"] }
+        return metrics
     
     def test_step(self, batch_data):
         # x is LR and y is SR
@@ -126,10 +113,7 @@ class DIDnet(Model):
         # Compute metrics
         metrics = self.get_metrics(real_x, real_y)
 
-        # Updates metrics
-        self.compiled_metrics.update_state(real_y, metrics["y_pred"])
-
-        return { "network_loss": metrics["network_loss"] }
+        return metrics
     
     def evaluate_test_datasets(self, path, lr_dataset, sr_dataset, normalized = False):
         plot_test_dataset(path, "LR", self.gen_G, lr_dataset, normalized=normalized)
@@ -161,7 +145,6 @@ def main():
     # Compile the model
     didnet.compile(
         optimizer=Adam(learning_rate=1e-4),
-        metrics=[PSNR, SSIM, CS],
         gen_G_optimizer=Adam(learning_rate=1e-4),
         gen_F_optimizer=Adam(learning_rate=1e-4),
         cycle_loss_fn=charbonnier_loss,
@@ -174,7 +157,9 @@ def main():
     model_checkpoint_callback = ModelCheckpoint(
         filepath= "./checkpoints/didnet_checkpoints.{epoch:03d}", save_weights_only=True
     )
-    net_metrics = NetworkMetricsPlotCallback(path="./results", metrics=["network_loss"])
+    net_metrics = NetworkMetricsPlotCallback(path="./results", metrics=[
+        "g_cycle_loss", "f_cycle_loss", "g_id_loss", "f_id_loss", "loop_loss", "id_loss",
+        "rec_loss", "channel_loss", "g_loss", "f_loss", "network_loss", "psnr", "ssim", "cs"])
 
     # Trains
     didnet.fit(
