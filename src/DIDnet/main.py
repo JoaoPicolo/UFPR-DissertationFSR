@@ -23,10 +23,10 @@ class DIDnet(Model):
         self.gen_G: Model = generator_G
         self.gen_F: Model = generator_F
 
-    def compile(self, optimizer, metrics, gen_G_optimizer, gen_F_optimizer,
+    def compile(self, optimizer, gen_G_optimizer, gen_F_optimizer,
         cycle_loss_fn, identity_loss_fn, train_size
     ):
-        super().compile(optimizer=optimizer, metrics=metrics)
+        super().compile(optimizer=optimizer)
         self.gen_G_optimizer: callable = gen_G_optimizer
         self.gen_F_optimizer: callable = gen_F_optimizer
         self.cycle_loss_fn: callable = cycle_loss_fn
