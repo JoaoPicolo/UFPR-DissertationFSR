@@ -41,4 +41,4 @@ class NetworkMetricsPlotCallback(Callback):
 
     def on_train_end(self, logs=None):
         for key in self.keys:
-            plot_metric_by_epoch(self.path, "Loss " + key, self.vals[key + "_train"], self.vals[key + "_val"])
+            plot_metric_by_epoch(self.path, "Metric: " + key, self.vals[key + "_train"], self.vals[key + "_val"])

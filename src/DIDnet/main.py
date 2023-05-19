@@ -46,7 +46,7 @@ class DIDnet(Model):
 
         # Generator cycle loss
         cycle_loss_G = self.cycle_loss_fn(real_x, cycled_x) / self.train_size
-        cycle_loss_F = self.cycle_loss_fn(real_y, cycled_y) / self.train_size
+        cycle_loss_F = (self.cycle_loss_fn(real_y, cycled_y) / self.train_size) * 0.1
 
         # Get face embeddings from Facenet
         id_embeddings_G = get_embeddings(fake_x, cycled_x)
@@ -66,7 +66,7 @@ class DIDnet(Model):
         identity_loss = id_loss_G + id_loss_F
         rec_loss = mae_loss(real_y, fake_y) / self.train_size
         channel_loss = charbonnier_loss(tf.image.rgb_to_yuv(fake_y), tf.image.rgb_to_yuv(real_y)) / self.train_size
-        network_loss = loop_loss + rec_loss + 0.5*identity_loss + 0.5*channel_loss
+        network_loss = loop_loss + 0.1*rec_loss + 0.5*identity_loss + 0.1*channel_loss
 
         # Computes other metrics
         psnr = tf.image.psnr(real_y, fake_y, max_val=255)
@@ -157,7 +157,7 @@ def main():
     model_checkpoint_callback = ModelCheckpoint(
         filepath= "./checkpoints/didnet_checkpoints.{epoch:03d}", save_weights_only=True
     )
-    net_metrics = NetworkMetricsPlotCallback(path="./results", metrics=[
+    net_metrics = NetworkMetricsPlotCallback(path="./results", keys=[
         "g_cycle_loss", "f_cycle_loss", "g_id_loss", "f_id_loss", "loop_loss", "id_loss",
         "rec_loss", "channel_loss", "g_loss", "f_loss", "network_loss", "psnr", "ssim", "cs"])
 
