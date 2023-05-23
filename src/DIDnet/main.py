@@ -46,16 +46,16 @@ class DIDnet(Model):
 
         # Generator cycle loss
         cycle_loss_G = self.cycle_loss_fn(real_x, cycled_x) / self.train_size
-        cycle_loss_F = (self.cycle_loss_fn(real_y, cycled_y) / self.train_size) * 0.1
+        cycle_loss_F = (self.cycle_loss_fn(real_y, cycled_y) / self.train_size)
 
         # Get face embeddings from Facenet
         id_embeddings_G = get_embeddings(fake_x, cycled_x)
         id_embeddings_F = get_embeddings(fake_y, cycled_y)
 
-        id_loss_G = self.identity_loss_fn(
-            id_embeddings_G[0], id_embeddings_G[1]) / self.train_size
-        id_loss_F = self.identity_loss_fn(
-            id_embeddings_F[0], id_embeddings_F[1]) / self.train_size
+        id_loss_G = (self.identity_loss_fn(
+            id_embeddings_G[0], id_embeddings_G[1]) / self.train_size) * 10e17
+        id_loss_F = (self.identity_loss_fn(
+            id_embeddings_F[0], id_embeddings_F[1]) / self.train_size) * 10e17
 
         # Total generator loss
         total_loss_G = cycle_loss_G + id_loss_G
@@ -66,7 +66,7 @@ class DIDnet(Model):
         identity_loss = id_loss_G + id_loss_F
         rec_loss = mae_loss(real_y, fake_y) / self.train_size
         channel_loss = charbonnier_loss(tf.image.rgb_to_yuv(fake_y), tf.image.rgb_to_yuv(real_y)) / self.train_size
-        network_loss = loop_loss + 0.1*rec_loss + 0.5*identity_loss + 0.1*channel_loss
+        network_loss = loop_loss + rec_loss + 0.5*identity_loss + 0.1*channel_loss
 
         # Computes other metrics
         psnr = tf.image.psnr(real_y, fake_y, max_val=255)
