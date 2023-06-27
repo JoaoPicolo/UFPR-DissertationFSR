@@ -129,6 +129,6 @@ dmypy.json
 .pyre/
 
 /datasets/*
-/src/*/models/*
-/src/*/checkpoints/*
-/src/*/results/*
+/networks/*/models/*
+/networks/*/checkpoints/*
+/networks/*/results/*
