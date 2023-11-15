@@ -1,7 +1,6 @@
 import os
 import shutil
 
-import cv2
 from PIL import Image
 
 from .common import create_new_dir
