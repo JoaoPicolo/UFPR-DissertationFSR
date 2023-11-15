@@ -13,10 +13,10 @@ from generator import get_generator
 from discriminator import get_discriminator
 
 sys.path.append("..")
-from shared.metrics import NetworkMetricsPlotCallback
-from shared.utils import get_parser
-from shared.plots import plot_metric_by_epoch, plot_test_dataset
-from shared.data import resize_image, get_dataset_split, manipulate_dataset, get_normalization_layer
+from common.metrics import NetworkMetricsPlotCallback
+from common.utils import get_parser
+from common.plots import plot_metric_by_epoch, plot_test_dataset
+from common.data import resize_image, get_dataset_split, manipulate_dataset, get_normalization_layer
 
 
 class EpochPlotCallback(Callback):

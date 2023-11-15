@@ -1,14 +1,13 @@
 import sys
 
-import numpy as np
 import tensorflow as tf
 from keras import Model
 from keras.optimizers import Adam
 
 sys.path.append("..")
 from face_recognition import get_network
-from shared.utils import get_parser
-from shared.data import get_dataset_split
+from common.utils import get_parser
+from common.data import get_dataset_split
 
 class FaceRecNet(Model):
     def __init__(self, model):

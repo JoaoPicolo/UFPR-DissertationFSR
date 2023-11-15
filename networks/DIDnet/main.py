@@ -10,10 +10,10 @@ from generators import get_model_G, get_model_F
 from utils import charbonnier_loss, mae_loss, mse_from_embedding
 
 sys.path.append("..")
-from shared.metrics import NetworkMetricsPlotCallback
-from shared.utils import get_parser
-from shared.plots import plot_test_dataset
-from shared.data import get_dataset_split, manipulate_dataset, get_normalization_layer
+from common.metrics import NetworkMetricsPlotCallback
+from common.utils import get_parser
+from common.plots import plot_test_dataset
+from common.data import get_dataset_split, manipulate_dataset, get_normalization_layer
 
 
 # Reference: https://keras.io/examples/generative/cyclegan/#build-the-cyclegan-model
