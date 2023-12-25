@@ -12,4 +12,6 @@ The description of each step is defined as follow:
 
 - The *recognition* directory stores the code used for final recognition evaluation. This is done by saving the results of a SR set into a *.csv* file named "results.csv". This directory has a "execution.sh" file to serve as an example on how to execute the code.
 
-Finally, the "pipeline.py" file stores the code used to run the entire pipeline proposed by creating 30 random samples for each dataset. The final "results.csv" file composed by the sum of all the recognition evaluation steps is analysed by the "students_evaluation.py" file.
+The "pipeline.py" file stores the code used to run the entire pipeline proposed by creating 30 random samples for each dataset. The final "results.csv" file composed by the sum of all the recognition evaluation steps is analysed by the "students_evaluation.py" file.
+
+Finally the "data.zip" file contains, for each dataset and reconition protocol, the images randomly generated in each sample of the described text in the thesis. It also stores for each one of the experiments the final "results.csv" file.
