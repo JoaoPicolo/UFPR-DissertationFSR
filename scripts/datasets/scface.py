@@ -7,8 +7,10 @@ from .common import create_new_dir
 from .preprocessing import crop_and_align
 
 
-def scface_to_lr_hr_real(dataset_path: str):
-    """ Adjusts the SCFace dataset
+def scface_to_lr_hr_unstructured(dataset_path: str):
+    """
+    Adjusts the SCFace dataset with the images
+    captured by the low resolution cameras.
     
     The following tree is implemented:
     - dir/
@@ -41,7 +43,9 @@ def scface_to_lr_hr_real(dataset_path: str):
 
 
 def scface_to_structured(dataset_path: str):
-    """ Adjusts the SCFace dataset
+    """
+    Adjusts the SCFace dataset with the images
+    captured by the low resolution cameras.
     
     The following tree is implemented:
     - dir/
@@ -50,7 +54,7 @@ def scface_to_structured(dataset_path: str):
     ---- HR/
     -------- Subject1/
 
-    Original is the HR/* and LR/* tree implemented above
+    "Original" is the HR/* and LR/* tree implemented above
     """
     # Creates dir to save manipulated images
     base_dir = f"{dataset_path}-structured/"

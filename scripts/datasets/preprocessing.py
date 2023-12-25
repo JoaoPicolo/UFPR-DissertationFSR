@@ -6,6 +6,9 @@ from skimage import io
 from skimage import transform as trans
 
 def detect_and_align_faces(img, face_detector, lmk_predictor, template_path, template_scale=2, size_threshold=999):
+    """
+    Detects and align the faces in a image. Code from: https://github.com/chaofengc/Face-SPARNet.
+    """
     align_out_size = (512, 512)
     ref_points = np.load(template_path) / template_scale
         
@@ -37,6 +40,11 @@ def detect_and_align_faces(img, face_detector, lmk_predictor, template_path, tem
     return [], []
 
 def crop_and_align(img_path: str, out_path: str, out_img_name: str = ''):
+    """
+    Crops the faces from a given image. Code from: https://github.com/chaofengc/Face-SPARNet.
+
+    The weights necessary for this code are defined in "weights.zip".
+    """
     face_detector = dlib.cnn_face_detection_model_v1(".mmod_human_face_detector.dat")
     lmk_predictor = dlib.shape_predictor(".shape_predictor_5_face_landmarks.dat")
     template_path = ".FFHQ_template.npy"
